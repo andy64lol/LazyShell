@@ -1,0 +1,97 @@
+#!/bin/bash
+
+print_usage() {
+  echo "Usage:"
+  echo "  inforepo                   # Show repo info for current directory"
+  echo "  inforepo [repo_path]       # Show repo info for a specific repo"
+}
+
+get_repo_creation_info() {
+  local repo="$1"
+  # Get first commit info (date and author)
+  git -C "$repo" log --reverse --format="%an|%ae|%ad" | head -1
+}
+
+get_clone_info() {
+  local repo="$1"
+  # Check if cloned by looking at remote origin and reflog for clone event
+  local remote_url
+  remote_url=$(git -C "$repo" remote get-url origin 2>/dev/null)
+  if [ -z "$remote_url" ]; then
+    echo "No remote origin found (local repo or no remote)"
+    return
+  fi
+
+  # Try to find clone date from reflog (approximate)
+  local clone_date
+  clone_date=$(git -C "$repo" reflog show --date=iso | grep "clone:" | head -1 | awk '{print $1, $2, $3}')
+  if [ -z "$clone_date" ]; then
+    # fallback: use first commit date as clone date approx
+    clone_date=$(git -C "$repo" log --reverse --format="%ad" | head -1)
+  fi
+
+  echo "Remote URL: $remote_url"
+  echo "Clone date (approx): $clone_date"
+}
+
+get_total_lines_and_languages() {
+  local repo="$1"
+  # Check if cloc is installed
+  if command -v cloc >/dev/null 2>&1; then
+    cloc --quiet --json "$repo"
+  else
+    echo "cloc not found, falling back to wc -l for total lines"
+    local total_lines
+    total_lines=$(find "$repo" -type f -name '*.*' -exec cat {} + | wc -l)
+    echo "{\"TotalLines\": $total_lines}"
+  fi
+}
+
+show_repo_info() {
+  local repo="$1"
+
+  if [ ! -d "$repo/.git" ]; then
+    echo "error: directory not a git repository -> $repo"
+    return 1
+  fi
+
+  echo "---- Repo Info for: $repo ----"
+  echo
+
+  # Repo creation info
+  local creation_info
+  creation_info=$(get_repo_creation_info "$repo")
+  if [ -n "$creation_info" ]; then
+    IFS='|' read -r author_name author_email author_date <<< "$creation_info"
+    echo "Repository created by: $author_name <$author_email>"
+    echo "Creation date: $author_date"
+  else
+    echo "Could not determine repository creation info."
+  fi
+
+  echo
+
+  # Clone info
+  get_clone_info "$repo"
+  echo
+
+  # Total lines and languages
+  echo "Lines of code and languages (cloc output or fallback):"
+  get_total_lines_and_languages "$repo"
+  echo
+
+  echo "-------------------------------"
+  echo
+}
+
+# ---------- MAIN ----------
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  print_usage
+  exit 0
+fi
+
+if [ $# -eq 0 ]; then
+  show_repo_info "$(pwd)"
+else
+  show_repo_info "$1"
+fi
