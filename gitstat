@@ -1,0 +1,54 @@
+#!/bin/bash
+
+print_usage() {
+  echo "Usage:"
+  echo "  gitstat                   # Show Git info for current directory"
+  echo "  gitstat [repo_path]       # Show Git info for a specific repo"
+}
+
+show_git_info() {
+  local repo="$1"
+
+  if [ ! -d "$repo/.git" ]; then
+    echo "error: directory not from git -> $repo"
+    return 1
+  fi
+
+  echo "---- Git Info for: $repo ----"
+  cd "$repo" || return 1
+
+  echo "Current Branch:"
+  git branch --show-current
+
+  echo
+  echo "Git Status:"
+  git status --short
+
+  echo
+  echo "Recent 5 Commits:"
+  git log -5 --oneline --graph --decorate
+
+  echo
+  echo "Remotes:"
+  git remote -v
+
+  echo
+  echo "Recent Activity (last 5 refs):"
+  git reflog -5
+
+  echo "-------------------------------"
+  echo
+}
+
+# ---------- MAIN ----------
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+  print_usage
+  exit 0
+fi
+
+# Use current dir if no argument is provided
+if [ $# -eq 0 ]; then
+  show_git_info "$(pwd)"
+else
+  show_git_info "$1"
+fi
