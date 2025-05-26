@@ -8,8 +8,8 @@ print_usage() {
 
 get_repo_creation_info() {
   local repo="$1"
-  # Get first commit info (date and author)
-  git -C "$repo" log --reverse --format="%an|%ae|%ad" | head -1
+  # Get first commit info (date and author) with ISO 8601 date format for better parsing
+  git -C "$repo" log --reverse --format="%an|%ae|%aI" | head -1
 }
 
 get_clone_info() {
