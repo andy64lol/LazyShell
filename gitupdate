@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# gitupdate script:
+# - With 3 args: clone or update given repo at given path, check file
+# - With 0 args: update current directory's git repo
+
+if [ "$#" -eq 0 ]; then
+  # No args, update current dir repo
+  if [ ! -d ".git" ]; then
+    echo "Error: Current directory is not a git repository."
+    exit 1
+  fi
+
+  CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
+  echo "Updating current repo on branch: $CURRENT_BRANCH"
+
+  git fetch origin || { echo "Fetch failed!"; exit 1; }
+  git reset --hard "origin/$CURRENT_BRANCH" || { echo "Reset failed!"; exit 1; }
+
+  echo "Update complete."
+  exit 0
+
+elif [ "$#" -eq 3 ]; then
+  # 3 args mode
+  REPO_URL="$1"
+  LOCAL_PATH="$2"
+  FILE_PATH="$3"
+
+  if [ ! -d "$LOCAL_PATH" ]; then
+    echo "Directory does not exist. Cloning repository..."
+    git clone "$REPO_URL" "$LOCAL_PATH" || { echo "Clone failed!"; exit 1; }
+  else
+    echo "Directory exists. Updating repository..."
+    cd "$LOCAL_PATH" || { echo "Cannot enter directory $LOCAL_PATH"; exit 1; }
+    
+    if [ ! -d ".git" ]; then
+      echo "Not a git repository. Removing directory and cloning again..."
+      cd ..
+      rm -rf "$LOCAL_PATH"
+      git clone "$REPO_URL" "$LOCAL_PATH" || { echo "Clone failed!"; exit 1; }
+      exit 0
+    fi
+
+    CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
+    echo "Current branch: $CURRENT_BRANCH"
+    
+    git fetch origin || { echo "Fetch failed!"; exit 1; }
+    git reset --hard "origin/$CURRENT_BRANCH" || { echo "Reset failed!"; exit 1; }
+  fi
+
+  # Check file presence
+  if [ -f "$LOCAL_PATH/$FILE_PATH" ]; then
+    echo "File $FILE_PATH found in the repository."
+  else
+    echo "Warning: File $FILE_PATH not found in the repository."
+  fi
+
+  echo "Git update complete."
+  exit 0
+
+else
+  echo "Invalid usage."
+  echo "Usage:"
+  echo "  sudo gitupdate                 # update current directory's git repo"
+  echo "  sudo gitupdate <repo_url> <local_path> <file_path>"
+  exit 1
+fi
+
