@@ -11,23 +11,28 @@ if [[ "$1" == "-h" || "$1" == "--help" ]]; then
   exit 0
 fi
 
-# Find all regular files in current directory (non-recursive)
-files=$(find . -maxdepth 1 -type f)
-
 count=0
-for file in $files; do
+found_files=0
+
+# Use find with -print0 and while read -d '' for safe file handling
+while IFS= read -r -d '' file; do
+    found_files=1
     filename=$(basename "$file")
-    echo "Copying $file to /usr/local/bin/$filename ..."
-    if sudo cp -f "$file" /usr/local/bin/"$filename"; then
-        if sudo chmod +x /usr/local/bin/"$filename"; then
+    echo "Copying \"$file\" to /usr/local/bin/$filename ..."
+    if sudo cp -f "$file" "/usr/local/bin/$filename"; then
+        if sudo chmod +x "/usr/local/bin/$filename"; then
             echo "Successfully copied and made executable: $filename"
-            ((count++))
+            count=$((count + 1))
         else
             echo "Error: Failed to make executable: $filename" >&2
         fi
     else
         echo "Error: Failed to copy $file" >&2
     fi
-done
+done < <(find . -maxdepth 1 -type f -print0)
+
+if [ $found_files -eq 0 ]; then
+  echo "No regular files found in the current directory to copy."
+fi
 
 echo "Total files copied and made executable: $count"
