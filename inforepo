@@ -24,7 +24,7 @@ get_clone_info() {
 
   # Try to find clone date from reflog (approximate)
   local clone_date
-  clone_date=$(git -C "$repo" reflog show --date=iso | grep "clone:" | head -1 | awk '{print $1, $2, $3}')
+  clone_date=$(git -C "$repo" reflog show --date=iso | grep "clone:" | head -1 | sed -E 's/.*HEAD@\{([^}]+)\}.*/\1/')
   if [ -z "$clone_date" ]; then
     # fallback: use first commit date as clone date approx
     clone_date=$(git -C "$repo" log --reverse --format="%ad" | head -1)
@@ -64,7 +64,7 @@ show_repo_info() {
   if [ -n "$creation_info" ]; then
     IFS='|' read -r author_name author_email author_date <<< "$creation_info"
     echo "Repository created by: $author_name <$author_email>"
-    echo "Creation date: $author_date"
+    echo "Creation date: $(date -d "$author_date" +"%Y-%m-%d %H:%M:%S %z")"
   else
     echo "Could not determine repository creation info."
   fi
