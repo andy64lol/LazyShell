@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Function to install python3
+install_python3() {
+  echo "🔍 Attempting to install python3..."
+  if command -v apt >/dev/null 2>&1; then
+    sudo apt update && sudo apt install -y python3
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y python3
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y python3
+  else
+    echo "❌ Unsupported package manager. Please install python3 manually."
+    exit 1
+  fi
+}
+
+# Function to install pip3
+install_pip3() {
+  echo "🔧 pip3 is not installed. Attempting to install pip..."
+  curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+  if [ $? -ne 0 ]; then
+    echo "❌ Failed to download get-pip.py"
+    exit 1
+  fi
+
+  python3 /tmp/get-pip.py
+  if [ $? -ne 0 ]; then
+    echo "❌ Failed to install pip"
+    exit 1
+  fi
+  echo "✅ pip installed successfully."
+}
+
+# Ensure python3 is available
+if ! command -v python3 >/dev/null 2>&1; then
+  install_python3
+fi
+
+# Ensure pip3 is available
+if ! command -v pip3 >/dev/null 2>&1; then
+  install_pip3
+fi
+
+# Show versions
+echo "🐍 Python version: $(python3 --version)"
+echo "📦 Pip version: $(pip3 --version)"
