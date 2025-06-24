@@ -1,0 +1,64 @@
+#!/bin/bash
+
+GITID_FILE="$HOME/.gitid"
+
+print_identity() {
+  echo "🔍 Git Global Identity:"
+  echo "Name:  $(git config --global user.name)"
+  echo "Email: $(git config --global user.email)"
+  echo "GitHub: $(grep ^GitHub= "$GITID_FILE" 2>/dev/null | cut -d= -f2 || echo 'Not set')"
+}
+
+if [[ "$1" == "--view" ]]; then
+  print_identity
+  exit 0
+fi
+
+# --local mode
+if [[ "$1" == "--local" ]]; then
+  echo "🔧 Setting Git identity for this repository only."
+
+  read -p "👤 Full Name: " git_name
+  read -p "📧 Email: " git_email
+
+  echo -e "\nYou entered (LOCAL):"
+  echo "Name: $git_name"
+  echo "Email: $git_email"
+  read -p "Proceed with setting this identity locally? [y/N] " confirm
+
+  if [[ "$confirm" =~ ^[Yy]$ ]]; then
+    git config user.name "$git_name"
+    git config user.email "$git_email"
+    echo "✅ Local Git identity set for this project."
+  else
+    echo "❌ Cancelled."
+  fi
+  exit 0
+fi
+
+# Default interactive global setup
+echo "🔧 Let's set your Git GLOBAL identity."
+
+read -p "👤 Full Name: " git_name
+read -p "📧 Email: " git_email
+read -p "🐙 GitHub Username (optional): " github_user
+
+echo -e "\nYou entered:"
+echo "Name: $git_name"
+echo "Email: $git_email"
+[ -n "$github_user" ] && echo "GitHub Username: $github_user"
+
+read -p "Proceed with setting this identity globally? [y/N] " confirm
+
+if [[ "$confirm" =~ ^[Yy]$ ]]; then
+  git config --global user.name "$git_name"
+  git config --global user.email "$git_email"
+  echo "✅ Git global identity updated."
+
+  echo -e "Name=$git_name\nEmail=$git_email" > "$GITID_FILE"
+  [ -n "$github_user" ] && echo "GitHub=$github_user" >> "$GITID_FILE"
+
+  echo "💾 Identity saved to $GITID_FILE"
+else
+  echo "❌ Cancelled."
+fi
