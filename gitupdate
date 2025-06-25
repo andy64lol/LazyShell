@@ -1,20 +1,14 @@
 #!/bin/bash
 
-# Define repo shortcuts (add more as needed)
-declare -A REPO_MAP
-REPO_MAP["myrepo"]="https://github.com/user/myrepo.git|$HOME/repos/myrepo|README.md"
-REPO_MAP["projectx"]="https://github.com/org/projectx.git|$HOME/dev/projectx|main.py"
-
 print_usage() {
   echo "Usage:"
-  echo "  gitupdate                        # update current directory git repo"
-  echo "  gitupdate <repo_name>           # update known repo by shortcut name"
-  echo "  gitupdate <url> <path> <file>   # update or clone specific repo"
+  echo "  gitupdate                         # Update current directory (must be git repo)"
+  echo "  gitupdate <directory>            # Update git repo in specified directory"
 }
 
-# === Mode 1: No args, update current git repo ===
+# === Mode 1: No arguments ===
 if [ "$#" -eq 0 ]; then
-  if [ ! -d ".git" ]; then
+  if [ ! -d .git ]; then
     echo "❌ Error: Current directory is not a git repository."
     exit 1
   fi
@@ -29,20 +23,33 @@ if [ "$#" -eq 0 ]; then
   exit 0
 fi
 
-# === Mode 2: 1 argument — shortcut name ===
+# === Mode 2: One argument = target directory ===
 if [ "$#" -eq 1 ]; then
-  NAME="$1"
-  if [ -z "${REPO_MAP[$NAME]}" ]; then
-    echo "❌ Unknown repo name: '$NAME'"
-    print_usage
+  TARGET_DIR="$1"
+
+  if [ ! -d "$TARGET_DIR" ]; then
+    echo "❌ Error: '$TARGET_DIR' is not a directory."
     exit 1
   fi
 
-  IFS="|" read -r REPO_URL LOCAL_PATH FILE_PATH <<< "${REPO_MAP[$NAME]}"
-  set -- "$REPO_URL" "$LOCAL_PATH" "$FILE_PATH"
+  if [ ! -d "$TARGET_DIR/.git" ]; then
+    echo "❌ Error: '$TARGET_DIR' is not a git repository."
+    exit 1
+  fi
+
+  cd "$TARGET_DIR" || { echo "❌ Failed to cd into $TARGET_DIR"; exit 1; }
+
+  CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
+  echo "🔄 Updating '$TARGET_DIR' on branch: $CURRENT_BRANCH"
+
+  git fetch origin || { echo "❌ Fetch failed!"; exit 1; }
+  git reset --hard "origin/$CURRENT_BRANCH" || { echo "❌ Reset failed!"; exit 1; }
+
+  echo "✅ Update complete."
+  exit 0
 fi
 
-# === Mode 3: 3 arguments — full mode ===
+# === Mode 3: Full manual (URL, PATH, FILE) ===
 if [ "$#" -eq 3 ]; then
   REPO_URL="$1"
   LOCAL_PATH="$2"
@@ -70,7 +77,7 @@ if [ "$#" -eq 3 ]; then
     git reset --hard "origin/$CURRENT_BRANCH" || { echo "❌ Reset failed!"; exit 1; }
   fi
 
-  # Check for required file
+  # Check file
   if [ -f "$LOCAL_PATH/$FILE_PATH" ]; then
     echo "✅ File '$FILE_PATH' found."
   else
