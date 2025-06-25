@@ -9,17 +9,17 @@ print_usage() {
 # === Mode 1: No arguments ===
 if [ "$#" -eq 0 ]; then
   if [ ! -d .git ]; then
-    echo "❌ Error: Current directory is not a git repository."
+    echo " Error: Current directory is not a git repository."
     exit 1
   fi
 
   CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
-  echo "🔄 Updating current repo on branch: $CURRENT_BRANCH"
+  echo " Updating current repo on branch: $CURRENT_BRANCH"
 
-  git fetch origin || { echo "❌ Fetch failed!"; exit 1; }
-  git reset --hard "origin/$CURRENT_BRANCH" || { echo "❌ Reset failed!"; exit 1; }
+  git fetch origin || { echo " Fetch failed!"; exit 1; }
+  git reset --hard "origin/$CURRENT_BRANCH" || { echo " Reset failed!"; exit 1; }
 
-  echo "✅ Update complete."
+  echo " Update complete."
   exit 0
 fi
 
@@ -28,24 +28,24 @@ if [ "$#" -eq 1 ]; then
   TARGET_DIR="$1"
 
   if [ ! -d "$TARGET_DIR" ]; then
-    echo "❌ Error: '$TARGET_DIR' is not a directory."
+    echo " Error: '$TARGET_DIR' is not a directory."
     exit 1
   fi
 
   if [ ! -d "$TARGET_DIR/.git" ]; then
-    echo "❌ Error: '$TARGET_DIR' is not a git repository."
+    echo " Error: '$TARGET_DIR' is not a git repository."
     exit 1
   fi
 
-  cd "$TARGET_DIR" || { echo "❌ Failed to cd into $TARGET_DIR"; exit 1; }
+  cd "$TARGET_DIR" || { echo " Failed to cd into $TARGET_DIR"; exit 1; }
 
   CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
-  echo "🔄 Updating '$TARGET_DIR' on branch: $CURRENT_BRANCH"
+  echo " Updating '$TARGET_DIR' on branch: $CURRENT_BRANCH"
 
-  git fetch origin || { echo "❌ Fetch failed!"; exit 1; }
-  git reset --hard "origin/$CURRENT_BRANCH" || { echo "❌ Reset failed!"; exit 1; }
+  git fetch origin || { echo " Fetch failed!"; exit 1; }
+  git reset --hard "origin/$CURRENT_BRANCH" || { echo " Reset failed!"; exit 1; }
 
-  echo "✅ Update complete."
+  echo " Update complete."
   exit 0
 fi
 
@@ -56,39 +56,39 @@ if [ "$#" -eq 3 ]; then
   FILE_PATH="$3"
 
   if [ ! -d "$LOCAL_PATH" ]; then
-    echo "📥 Directory does not exist. Cloning repository..."
-    git clone "$REPO_URL" "$LOCAL_PATH" || { echo "❌ Clone failed!"; exit 1; }
+    echo " Directory does not exist. Cloning repository..."
+    git clone "$REPO_URL" "$LOCAL_PATH" || { echo " Clone failed!"; exit 1; }
   else
-    echo "📁 Directory exists. Updating repository..."
-    cd "$LOCAL_PATH" || { echo "❌ Cannot enter directory $LOCAL_PATH"; exit 1; }
+    echo " Directory exists. Updating repository..."
+    cd "$LOCAL_PATH" || { echo " Cannot enter directory $LOCAL_PATH"; exit 1; }
 
     if [ ! -d ".git" ]; then
-      echo "⚠️ Not a git repository. Re-cloning..."
+      echo " Not a git repository. Re-cloning..."
       cd ..
       rm -rf "$LOCAL_PATH"
-      git clone "$REPO_URL" "$LOCAL_PATH" || { echo "❌ Clone failed!"; exit 1; }
+      git clone "$REPO_URL" "$LOCAL_PATH" || { echo " Clone failed!"; exit 1; }
       exit 0
     fi
 
     CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
-    echo "🔄 Updating branch: $CURRENT_BRANCH"
+    echo " Updating branch: $CURRENT_BRANCH"
 
-    git fetch origin || { echo "❌ Fetch failed!"; exit 1; }
-    git reset --hard "origin/$CURRENT_BRANCH" || { echo "❌ Reset failed!"; exit 1; }
+    git fetch origin || { echo " Fetch failed!"; exit 1; }
+    git reset --hard "origin/$CURRENT_BRANCH" || { echo " Reset failed!"; exit 1; }
   fi
 
   # Check file
   if [ -f "$LOCAL_PATH/$FILE_PATH" ]; then
-    echo "✅ File '$FILE_PATH' found."
+    echo " File '$FILE_PATH' found."
   else
-    echo "⚠️ Warning: File '$FILE_PATH' not found."
+    echo " Warning: File '$FILE_PATH' not found."
   fi
 
-  echo "✅ Git update complete."
+  echo " Git update complete."
   exit 0
 fi
 
 # === Invalid usage ===
-echo "❌ Invalid arguments."
+echo " Invalid arguments."
 print_usage
 exit 1

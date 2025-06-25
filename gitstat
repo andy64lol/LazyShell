@@ -53,4 +53,4 @@ else
   show_git_info "$1"
 fi
 
-# No emojis present in this file.
+

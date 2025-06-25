@@ -5,15 +5,15 @@
 # Get starting directory (current by default)
 ROOT_DIR="${1:-$(pwd)}"
 
-echo -e "\n🔍 Searching Git repositories under: \033[1;34m$ROOT_DIR\033[0m"
+echo -e "\nSearching Git repositories under: \033[1;34m$ROOT_DIR\033[0m"
 REPOS=$(find "$ROOT_DIR" -type d -name ".git" 2>/dev/null)
 
 if [[ -z "$REPOS" ]]; then
-    echo "❌ No Git repositories found."
+    echo "No Git repositories found."
     exit 1
 fi
 
-echo -e "ℹ️  Found \033[1;33m$(echo "$REPOS" | wc -l)\033[0m repositories to process\n"
+echo -e "Found \033[1;33m$(echo "$REPOS" | wc -l)\033[0m repositories to process\n"
 
 for GIT_DIR in $REPOS; do
     REPO_DIR=$(dirname "$GIT_DIR")
@@ -37,10 +37,10 @@ for GIT_DIR in $REPOS; do
         # Generate detailed commit message with "from gitauto"
         COMMIT_MESSAGE="Auto-commit: $FILE_COUNT changes ($MODIFIED modified, $ADDED added, $DELETED deleted) in $REPO_NAME [from gitauto]"
         
-        echo -e "\n📦 Repository: \033[1;35m$REPO_NAME\033[0m"
-        echo -e "📊 Changes: \033[33m$FILE_COUNT total\033[0m (\033[32m$ADDED added\033[0m, \033[31m$DELETED deleted\033[0m, \033[34m$MODIFIED modified\033[0m)"
-        echo -e "🌐 Remote: \033[36m${REMOTE_URL//%//%%}\033[0m"
-        echo -e "💾 Committing changes..."
+        echo -e "\nRepository: \033[1;35m$REPO_NAME\033[0m"
+        echo -e "Changes: \033[33m$FILE_COUNT total\033[0m (\033[32m$ADDED added\033[0m, \033[31m$DELETED deleted\033[0m, \033[34m$MODIFIED modified\033[0m)"
+        echo -e "Remote: \033[36m${REMOTE_URL//%//%%}\033[0m"
+        echo -e "Committing changes..."
 
         # Git operations with error handling
         if git add . && \
@@ -48,18 +48,17 @@ for GIT_DIR in $REPOS; do
             # Push to current branch if remote exists
             if [[ "$REMOTE_URL" != "local-only" ]]; then
                 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-                echo -e "🚀 Pushing to \033[1;32m$CURRENT_BRANCH\033[0m..."
+                echo -e "Pushing to \033[1;32m$CURRENT_BRANCH\033[0m..."
                 git push origin "$CURRENT_BRANCH"
             else
-                echo "⚠️  No remote - skipping push"
+                echo "No remote - skipping push"
             fi
         else
-            echo "❌ Failed to commit changes"
+            echo "Failed to commit changes"
         fi
     else
-        echo -e "✅ \033[1;36m$REPO_NAME\033[0m: No changes detected"
+        echo -e "\033[1;36m$REPO_NAME\033[0m: No changes detected"
     fi
 done
 
-echo -e "\n🎉 \033[1;32mgitauto completed successfully!\033[0m"
-# No emojis present in this file.
+echo -e "\ngitauto completed successfully!\033[0m"

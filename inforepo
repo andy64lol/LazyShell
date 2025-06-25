@@ -117,4 +117,4 @@ else
   show_repo_info "$1"
 fi
 
-# No emojis present in this file.
+
