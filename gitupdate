@@ -1,68 +1,87 @@
 #!/bin/bash
 
-# gitupdate script:
-# - With 3 args: clone or update given repo at given path, check file
-# - With 0 args: update current directory's git repo
+# Define repo shortcuts (add more as needed)
+declare -A REPO_MAP
+REPO_MAP["myrepo"]="https://github.com/user/myrepo.git|$HOME/repos/myrepo|README.md"
+REPO_MAP["projectx"]="https://github.com/org/projectx.git|$HOME/dev/projectx|main.py"
 
+print_usage() {
+  echo "Usage:"
+  echo "  gitupdate                        # update current directory git repo"
+  echo "  gitupdate <repo_name>           # update known repo by shortcut name"
+  echo "  gitupdate <url> <path> <file>   # update or clone specific repo"
+}
+
+# === Mode 1: No args, update current git repo ===
 if [ "$#" -eq 0 ]; then
-  # No args, update current dir repo
   if [ ! -d ".git" ]; then
-    echo "Error: Current directory is not a git repository."
+    echo "❌ Error: Current directory is not a git repository."
     exit 1
   fi
 
   CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
-  echo "Updating current repo on branch: $CURRENT_BRANCH"
+  echo "🔄 Updating current repo on branch: $CURRENT_BRANCH"
 
-  git fetch origin || { echo "Fetch failed!"; exit 1; }
-  git reset --hard "origin/$CURRENT_BRANCH" || { echo "Reset failed!"; exit 1; }
+  git fetch origin || { echo "❌ Fetch failed!"; exit 1; }
+  git reset --hard "origin/$CURRENT_BRANCH" || { echo "❌ Reset failed!"; exit 1; }
 
-  echo "Update complete."
+  echo "✅ Update complete."
   exit 0
+fi
 
-elif [ "$#" -eq 3 ]; then
-  # 3 args mode
+# === Mode 2: 1 argument — shortcut name ===
+if [ "$#" -eq 1 ]; then
+  NAME="$1"
+  if [ -z "${REPO_MAP[$NAME]}" ]; then
+    echo "❌ Unknown repo name: '$NAME'"
+    print_usage
+    exit 1
+  fi
+
+  IFS="|" read -r REPO_URL LOCAL_PATH FILE_PATH <<< "${REPO_MAP[$NAME]}"
+  set -- "$REPO_URL" "$LOCAL_PATH" "$FILE_PATH"
+fi
+
+# === Mode 3: 3 arguments — full mode ===
+if [ "$#" -eq 3 ]; then
   REPO_URL="$1"
   LOCAL_PATH="$2"
   FILE_PATH="$3"
 
   if [ ! -d "$LOCAL_PATH" ]; then
-    echo "Directory does not exist. Cloning repository..."
-    git clone "$REPO_URL" "$LOCAL_PATH" || { echo "Clone failed!"; exit 1; }
+    echo "📥 Directory does not exist. Cloning repository..."
+    git clone "$REPO_URL" "$LOCAL_PATH" || { echo "❌ Clone failed!"; exit 1; }
   else
-    echo "Directory exists. Updating repository..."
-    cd "$LOCAL_PATH" || { echo "Cannot enter directory $LOCAL_PATH"; exit 1; }
-    
+    echo "📁 Directory exists. Updating repository..."
+    cd "$LOCAL_PATH" || { echo "❌ Cannot enter directory $LOCAL_PATH"; exit 1; }
+
     if [ ! -d ".git" ]; then
-      echo "Not a git repository. Removing directory and cloning again..."
+      echo "⚠️ Not a git repository. Re-cloning..."
       cd ..
       rm -rf "$LOCAL_PATH"
-      git clone "$REPO_URL" "$LOCAL_PATH" || { echo "Clone failed!"; exit 1; }
+      git clone "$REPO_URL" "$LOCAL_PATH" || { echo "❌ Clone failed!"; exit 1; }
       exit 0
     fi
 
     CURRENT_BRANCH=$(git symbolic-ref --short HEAD)
-    echo "Current branch: $CURRENT_BRANCH"
-    
-    git fetch origin || { echo "Fetch failed!"; exit 1; }
-    git reset --hard "origin/$CURRENT_BRANCH" || { echo "Reset failed!"; exit 1; }
+    echo "🔄 Updating branch: $CURRENT_BRANCH"
+
+    git fetch origin || { echo "❌ Fetch failed!"; exit 1; }
+    git reset --hard "origin/$CURRENT_BRANCH" || { echo "❌ Reset failed!"; exit 1; }
   fi
 
-  # Check file presence
+  # Check for required file
   if [ -f "$LOCAL_PATH/$FILE_PATH" ]; then
-    echo "File $FILE_PATH found in the repository."
+    echo "✅ File '$FILE_PATH' found."
   else
-    echo "Warning: File $FILE_PATH not found in the repository."
+    echo "⚠️ Warning: File '$FILE_PATH' not found."
   fi
 
-  echo "Git update complete."
+  echo "✅ Git update complete."
   exit 0
-
-else
-  echo "Invalid usage."
-  echo "Usage:"
-  echo "  sudo gitupdate                 # update current directory's git repo"
-  echo "  sudo gitupdate <repo_url> <local_path> <file_path>"
-  exit 1
 fi
 
+# === Invalid usage ===
+echo "❌ Invalid arguments."
+print_usage
+exit 1
