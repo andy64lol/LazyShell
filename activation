@@ -1,38 +1,63 @@
 #!/bin/bash
 
+# === Function: Print usage ===
 print_usage() {
   echo "Usage:"
-  echo "  bash ./activation          # Copy all regular files from current directory to /usr/local/bin"
-  echo "  bash ./activation -h|--help  # Show this help message"
+  echo "  bash ./activation             # Copy scripts to /usr/local/bin and update via git"
+  echo "  bash ./activation -h|--help   # Show this help message"
 }
 
+# === Show help ===
 if [[ "$1" == "-h" || "$1" == "--help" ]]; then
   print_usage
   exit 0
 fi
 
+# === Git self-update using gitupdate if available ===
+if command -v gitupdate >/dev/null 2>&1; then
+  echo "🔄 Attempting to update this repo using: gitupdate LazyShell"
+  if gitupdate LazyShell; then
+    echo "✅ LazyShell updated."
+  else
+    echo "⚠️ Warning: Failed to update LazyShell using gitupdate."
+  fi
+else
+  echo "ℹ️ 'gitupdate' not found. Skipping git update step."
+fi
+
+# === Begin copying files ===
 count=0
 found_files=0
 
-# Use find with -print0 and while read -d '' for safe file handling
+echo "📦 Copying regular files from current directory to /usr/local/bin..."
+
+# Use find for safe handling, skip certain files
 while IFS= read -r -d '' file; do
-    found_files=1
-    filename=$(basename "$file")
-    echo "Copying \"$file\" to /usr/local/bin/$filename ..."
-    if sudo cp -f "$file" "/usr/local/bin/$filename"; then
-        if sudo chmod +x "/usr/local/bin/$filename"; then
-            echo "Successfully copied and made executable: $filename"
-            count=$((count + 1))
-        else
-            echo "Error: Failed to make executable: $filename" >&2
-        fi
+  filename=$(basename "$file")
+
+  # Skip README.md, LICENSE, and the activation script itself
+  if [[ "$filename" == "README.md" || "$filename" == "LICENSE" || "$filename" == "activation" ]]; then
+    continue
+  fi
+
+  found_files=1
+  echo "📁 Copying \"$file\" → /usr/local/bin/$filename ..."
+  
+  if sudo cp -f "$file" "/usr/local/bin/$filename"; then
+    if sudo chmod +x "/usr/local/bin/$filename"; then
+      echo "✅ Successfully copied and made executable: $filename"
+      count=$((count + 1))
     else
-        echo "Error: Failed to copy $file" >&2
+      echo "❌ Error: Failed to make executable: $filename" >&2
     fi
+  else
+    echo "❌ Error: Failed to copy $file" >&2
+  fi
 done < <(find . -maxdepth 1 -type f -print0)
 
+# === Summary ===
 if [ $found_files -eq 0 ]; then
-  echo "No regular files found in the current directory to copy."
+  echo "⚠️ No regular files found in the current directory to copy."
 fi
 
-echo "Total files copied and made executable: $count"
+echo "📊 Total files copied and made executable: $count"
