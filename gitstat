@@ -52,3 +52,5 @@ if [ $# -eq 0 ]; then
 else
   show_git_info "$1"
 fi
+
+# No emojis present in this file.

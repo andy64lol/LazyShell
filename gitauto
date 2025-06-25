@@ -62,3 +62,4 @@ for GIT_DIR in $REPOS; do
 done
 
 echo -e "\n🎉 \033[1;32mgitauto completed successfully!\033[0m"
+# No emojis present in this file.
