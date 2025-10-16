@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Simple Python package installer script
+
+if [ "$#" -lt 1 ]; then
+    echo "Usage:"
+    echo "  pyinstall <package_name>      # Install using sudo apt install python3-<package_name>"
+    echo "  pyinstall -f <package_name>   # Install using pip with --break-system-packages (warning!)"
+    exit 1
+fi
+
+if [ "$1" == "-f" ]; then
+    # Forced install with pip and --break-system-packages
+    if [ -z "$2" ]; then
+        echo "Error: No package specified for forced install."
+        exit 1
+    fi
+    PACKAGE="$2"
+    echo "Warning: Installing $PACKAGE with --break-system-packages can break your system Python."
+    read -p "Are you sure you want to continue? (y/N): " CONFIRM
+    if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+        python3 -m pip install --break-system-packages "$PACKAGE"
+    else
+        echo "Aborted."
+        exit 1
+    fi
+else
+    # Normal apt install
+    PACKAGE="$1"
+    sudo apt update
+    sudo apt install -y "python3-$PACKAGE"
+fi
