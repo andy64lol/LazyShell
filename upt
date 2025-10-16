@@ -1,0 +1,13 @@
+#!/bin/bash
+# upt - show what would be upgraded before running sudo apt upgrade
+
+echo "The following packages would be upgraded:"
+sudo apt -s upgrade  # -s = simulate, shows what would be upgraded
+
+echo
+read -p "Do you want to proceed with upgrading these packages? (y/N): " CONFIRM
+if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+    sudo apt upgrade
+else
+    echo "Aborted."
+fi

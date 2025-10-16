@@ -1,0 +1,13 @@
+#!/bin/bash
+# rmv - show what will be removed before running sudo apt autoremove
+
+echo "The following packages would be removed:"
+sudo apt -s autoremove  # -s = simulate, shows what would be removed
+
+echo
+read -p "Do you want to proceed with removing these packages? (y/N): " CONFIRM
+if [[ "$CONFIRM" =~ ^[Yy]$ ]]; then
+    sudo apt autoremove
+else
+    echo "Aborted."
+fi
