@@ -8,9 +8,13 @@ print_usage() {
 }
 
 # === Show help ===
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-  print_usage
-  exit 0
+if [[ -n "$1" ]]; then
+  FLAG="$1"
+  while [[ "$FLAG" == -* ]]; do FLAG="${FLAG#-}"; done
+  if [[ "$FLAG" == "h" || "$FLAG" == "help" ]]; then
+    print_usage
+    exit 0
+  fi
 fi
 
 # === Git self-update using gitupdate if available ===

@@ -41,9 +41,13 @@ show_git_info() {
 }
 
 # ---------- MAIN ----------
-if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-  print_usage
-  exit 0
+if [[ -n "$1" ]]; then
+  FLAG="$1"
+  while [[ "$FLAG" == -* ]]; do FLAG="${FLAG#-}"; done
+  if [[ "$FLAG" == "h" || "$FLAG" == "help" ]]; then
+    print_usage
+    exit 0
+  fi
 fi
 
 # Use current dir if no argument is provided

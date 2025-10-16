@@ -9,7 +9,11 @@ if [ "$#" -lt 1 ]; then
     exit 1
 fi
 
-if [ "$1" == "-f" ]; then
+ARG_RAW="$1"
+ARG="$ARG_RAW"
+while [[ "$ARG" == -* ]]; do ARG="${ARG#-}"; done
+
+if [[ "$ARG" == "f" ]]; then
     # Forced install with pip and --break-system-packages
     if [ -z "$2" ]; then
         echo "Error: No package specified for forced install."
@@ -26,7 +30,7 @@ if [ "$1" == "-f" ]; then
     fi
 else
     # Normal apt install
-    PACKAGE="$1"
+    PACKAGE="$ARG_RAW"
     sudo apt update
     sudo apt install -y "python3-$PACKAGE"
 fi

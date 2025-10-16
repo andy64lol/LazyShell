@@ -8,12 +8,42 @@ mkdir -p "$SHORTCUT_DIR"
 print_usage() {
   echo "Usage:"
   echo "  st                     # Create a new shortcut interactively"
-  echo "  st --del <name>        # Delete an existing shortcut"
-  echo "  st --help              # Show this help message"
+  echo "  st --del <name>        # Delete an existing shortcut (also accepts -del)"
+  echo "  st -ls                 # List all shortcuts (also accepts --ls)"
+  echo "  st -edit <name>        # Edit an existing shortcut (also accepts --edit)"
+  echo "  st --help              # Show this help message (also accepts -h/-help)"
 }
 
+# Normalize incoming flag (accept -foo, --foo, -fooBar, --fooBar)
+NORMALIZE_FLAG() {
+  local raw="$1"
+  if [ -z "$raw" ]; then
+    echo ""
+    return
+  fi
+  while [[ "$raw" == -* ]]; do raw="${raw#-}"; done
+  echo "$raw"
+}
+
+FLAG=$(NORMALIZE_FLAG "$1")
+
+# === List shortcuts ===
+if [[ "$FLAG" == "ls" ]]; then
+  echo "Shortcuts in $SHORTCUT_DIR:"
+  if [ -z "$(ls -A "$SHORTCUT_DIR")" ]; then
+    echo "  No shortcuts found."
+  else
+    for file in "$SHORTCUT_DIR"/*; do
+      shortcut_name=$(basename "$file")
+      command_line=$(head -n 2 "$file" | tail -n 1)
+      echo "  $shortcut_name -> $command_line"
+    done
+  fi
+  exit 0
+fi
+
 # === Delete mode ===
-if [[ "$1" == "--del" ]]; then
+if [[ "$FLAG" == "del" ]]; then
   if [[ -z "$2" ]]; then
     echo "Error: No shortcut name provided."
     print_usage
@@ -37,8 +67,46 @@ if [[ "$1" == "--del" ]]; then
   exit 0
 fi
 
+# === Edit shortcut ===
+if [[ "$FLAG" == "edit" ]]; then
+  if [[ -z "$2" ]]; then
+    echo "Error: No shortcut name provided."
+    print_usage
+    exit 1
+  fi
+
+  shortcut="$2"
+  shortcut_path="$SHORTCUT_DIR/$shortcut"
+
+  if [[ ! -f "$shortcut_path" ]]; then
+    echo "Shortcut '$shortcut' does not exist."
+    exit 1
+  fi
+
+  echo "Current command for '$shortcut':"
+  sed -n '2p' "$shortcut_path"
+  echo
+  echo -n "Enter new command: "
+  read -r new_command
+
+  if [[ -z "$new_command" ]]; then
+    echo "No command entered. Exiting."
+    exit 1
+  fi
+
+  echo "#!/bin/bash" > "$shortcut_path"
+  echo "$new_command" >> "$shortcut_path"
+  chmod +x "$shortcut_path"
+
+  # Update symlink in /usr/local/bin
+  sudo ln -sf "$shortcut_path" "$BIN_DIR/$shortcut"
+
+  echo "Shortcut '$shortcut' updated successfully!"
+  exit 0
+fi
+
 # === Help ===
-if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+if [[ "$FLAG" == "h" || "$FLAG" == "help" ]]; then
   print_usage
   exit 0
 fi

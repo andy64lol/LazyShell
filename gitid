@@ -9,13 +9,17 @@ print_identity() {
   echo "GitHub: $(grep ^GitHub= "$GITID_FILE" 2>/dev/null | cut -d= -f2 || echo 'Not set')"
 }
 
-if [[ "$1" == "--view" ]]; then
-  print_identity
-  exit 0
-fi
+if [[ -n "$1" ]]; then
+  FLAG="$1"
+  while [[ "$FLAG" == -* ]]; do FLAG="${FLAG#-}"; done
 
-# --local mode
-if [[ "$1" == "--local" ]]; then
+  if [[ "$FLAG" == "view" ]]; then
+    print_identity
+    exit 0
+  fi
+
+  # --local mode
+  if [[ "$FLAG" == "local" ]]; then
   echo " Setting Git identity for this repository only."
 
   read -p " Full Name: " git_name

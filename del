@@ -25,19 +25,23 @@ if [ "$#" -lt 1 ]; then
     usage
 fi
 
-OPTION="$1"
+OPTION_RAW="$1"
 TARGET="$2"
 
+# normalize option (strip leading dashes)
+OPTION="$OPTION_RAW"
+while [[ "$OPTION" == -* ]]; do OPTION="${OPTION#-}"; done
+
 # No option: normal remove package/file
-if [ -z "$TARGET" ] || [[ "$OPTION" != "-"* ]]; then
-    TARGET="$OPTION"
+if [ -z "$TARGET" ] || [[ "$OPTION_RAW" != -* ]]; then
+    TARGET="$OPTION_RAW"
     echo "Removing package/file: $TARGET"
     sudo apt remove -y "$TARGET" 2>/dev/null || rm -i "$TARGET"
     exit 0
 fi
 
-# Options: -dir or -pdir (directories)
-if [[ "$OPTION" == "-dir" || "$OPTION" == "-pdir" ]]; then
+# Options: dir or pdir (directories)
+if [[ "$OPTION" == "dir" || "$OPTION" == "pdir" ]]; then
     TARGET_ABS=$(realpath -s "$TARGET" 2>/dev/null)
     if [ -z "$TARGET_ABS" ] || [ ! -d "$TARGET_ABS" ]; then
         echo "Error: '$TARGET' is not a valid directory."
