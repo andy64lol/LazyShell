@@ -2,7 +2,7 @@
 
 # Function to install python3
 install_python3() {
-  echo "🔍 Attempting to install python3..."
+  echo " Attempting to install python3..."
   if command -v apt >/dev/null 2>&1; then
     sudo apt update && sudo apt install -y python3
   elif command -v dnf >/dev/null 2>&1; then
@@ -17,7 +17,7 @@ install_python3() {
 
 # Function to install pip
 install_pip() {
-  echo "🔧 pip3 is not installed. Attempting to install pip..."
+  echo " pip3 is not installed. Attempting to install pip..."
   curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
   if [ $? -ne 0 ]; then
     echo " Failed to download get-pip.py"
