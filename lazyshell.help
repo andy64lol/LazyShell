@@ -1,0 +1,93 @@
+#!/bin/bash
+# lazyshell.help — Display LazyShell command reference and usage info
+
+cat <<'EOF'
+LazyShell — small collection of helper shell scripts
+-----------------------------------------------------
+
+LazyShell is a lightweight set of personal shell utilities for common developer tasks:
+- Installing small CLI scripts system-wide
+- Quick Git helpers
+- Repo info
+- Python helpers
+- Shortcut manager
+
+Quick Install
+-------------
+Install all scripts to PATH:
+    bash ./activation
+
+Manual install example:
+    sudo cp <script> /usr/local/bin/
+    sudo chmod +x /usr/local/bin/<script>
+
+Included Scripts
+----------------
+activation  - Copy files to /usr/local/bin, make executable, skip README/LICENSE/activation. Supports -h|--help, auto-runs gitupdate if available.
+
+del         - Flexible removal helper:
+                del <name>      # apt remove or rm -i
+                del -p <name>   # purge apt package or rm -f
+                del -dir <dir>  # remove directory with confirmation
+                del -pdir <dir> # purge directory after explicit confirmation
+
+gitauto     - Walk directories, find Git repos, stage & commit all changes, push to origin.
+
+gitid       - Interactive Git identity helper:
+                --local         # set repo-local identity
+                --view          # show saved identity & GitHub username
+
+gitstat     - Show Git info for current directory or provided path (branch, status, recent commits, remotes, reflog).
+
+gitupdate   - Update repository from remote:
+                gitupdate                # update current repo
+                gitupdate <dir>          # update specified repo
+                gitupdate <url> <path> <file_path> # clone or update, check for file
+
+inforepo    - Show repo metadata (creation info, remote URL, approximate clone date, LOC summary with cloc fallback).
+
+py          - Python runner & bootstrapper:
+                py pyver        # show Python/pip versions
+                py <args...>    # runs python3 <args...>
+
+pyinstall   - Install Python packages:
+                pyinstall <name>          # system package
+                pyinstall -f <package>   # pip install --break-system-packages (dangerous)
+
+pyver       - Ensure python3/pip3 are installed, then show versions.
+
+rmv         - Preview apt autoremove, then prompt to run.
+
+st          - Shortcut manager:
+                st                        # create shortcut
+                st --del <name>           # delete shortcut
+                st --help                 # show help
+                -h                        # short help
+
+upt         - Preview apt upgrade, then prompt to run.
+
+Examples
+--------
+Create a shortcut named 'hello':
+    st
+    # command 'echo Hello', name 'hello'
+    hello
+
+Batch auto-commit repositories:
+    gitauto /path/to/search
+
+Show repo info for another repo:
+    inforepo /path/to/project
+
+Notes & Safety
+---------------
+- Many scripts use sudo for system changes.
+- del refuses to remove protected system directories and prompts for destructive deletions.
+- pyinstall -f can break system Python environments — requires confirmation.
+- activation overwrites files in /usr/local/bin with same name.
+
+License
+-------
+Apache License 2.0
+
+EOF
