@@ -2,11 +2,19 @@
 
 print_usage() {
   echo "Usage:"
-  echo "  gitupdate                         # Update current directory (must be git repo)"
-  echo "  gitupdate <directory>            # Update git repo in specified directory"
+  echo "  gitupdate [--hard]                 # Update current directory (must be git repo)"
+  echo "  gitupdate [--hard] <directory>     # Update git repo in specified directory"
 }
 
-# === Mode 1: No arguments ===
+HARD_RESET=false
+
+# Check if first argument is --hard
+if [ "$1" == "--hard" ]; then
+  HARD_RESET=true
+  shift
+fi
+
+# === Mode 1: No arguments (after shift) ===
 if [ "$#" -eq 0 ]; then
   if [ ! -d .git ]; then
     echo " Error: Current directory is not a git repository."
@@ -17,13 +25,20 @@ if [ "$#" -eq 0 ]; then
   echo " Updating current repo on branch: $CURRENT_BRANCH"
 
   git fetch origin || { echo " Fetch failed!"; exit 1; }
-  git reset --hard "origin/$CURRENT_BRANCH" || { echo " Reset failed!"; exit 1; }
+
+  if [ "$HARD_RESET" = true ]; then
+    echo " Performing hard reset..."
+    git reset --hard "origin/$CURRENT_BRANCH" || { echo " Reset failed!"; exit 1; }
+  else
+    echo " Performing safe merge..."
+    git merge --ff-only "origin/$CURRENT_BRANCH" || { echo " Merge failed!"; exit 1; }
+  fi
 
   echo " Update complete."
   exit 0
 fi
 
-# === Mode 2: One argument = target directory ===
+# === Mode 2: One argument = target directory (after shift) ===
 if [ "$#" -eq 1 ]; then
   TARGET_DIR="$1"
 
@@ -43,7 +58,14 @@ if [ "$#" -eq 1 ]; then
   echo " Updating '$TARGET_DIR' on branch: $CURRENT_BRANCH"
 
   git fetch origin || { echo " Fetch failed!"; exit 1; }
-  git reset --hard "origin/$CURRENT_BRANCH" || { echo " Reset failed!"; exit 1; }
+
+  if [ "$HARD_RESET" = true ]; then
+    echo " Performing hard reset..."
+    git reset --hard "origin/$CURRENT_BRANCH" || { echo " Reset failed!"; exit 1; }
+  else
+    echo " Performing safe merge..."
+    git merge --ff-only "origin/$CURRENT_BRANCH" || { echo " Merge failed!"; exit 1; }
+  fi
 
   echo " Update complete."
   exit 0
@@ -74,7 +96,14 @@ if [ "$#" -eq 3 ]; then
     echo " Updating branch: $CURRENT_BRANCH"
 
     git fetch origin || { echo " Fetch failed!"; exit 1; }
-    git reset --hard "origin/$CURRENT_BRANCH" || { echo " Reset failed!"; exit 1; }
+
+    if [ "$HARD_RESET" = true ]; then
+      echo " Performing hard reset..."
+      git reset --hard "origin/$CURRENT_BRANCH" || { echo " Reset failed!"; exit 1; }
+    else
+      echo " Performing safe merge..."
+      git merge --ff-only "origin/$CURRENT_BRANCH" || { echo " Merge failed!"; exit 1; }
+    fi
   fi
 
   # Check file
