@@ -23,7 +23,7 @@ sudo cp <script> /usr/local/bin/
 sudo chmod +x /usr/local/bin/<script>
 ```
 
-### Included scripts (accurate descriptions)
+### Included scripts
 
 - `activation` — Copy regular files in the current directory to `/usr/local/bin`, make them executable, skip certain files (README.md, LICENSE, activation). Supports `-h|--help` and tries to run `gitupdate LazyShell` if available.
 
@@ -47,6 +47,9 @@ sudo chmod +x /usr/local/bin/<script>
   - `gitupdate` (no args): update the current repo (must be run inside a git repo). Fetches and hard-resets to `origin/<current-branch>`.
   - `gitupdate <directory>`: the same update for the specified repo directory.
   - `gitupdate <repo_url> <local_path> <file_path>`: clone if missing, or update and optionally check for the presence of `<file_path>` inside `<local_path>`.
+  - `gitupdate --hard`: Reset it hard, discarding all local changes.
+  - `gitupdate --hard <directory>`: Perform a hard reset in the specified repo directory.
+  - `gitupdate --hard <repo_url> <local_path> <file_path>`: Force hard reset after cloning or updating the repo, discarding all local changes.
 
 - `inforepo` — Show repo metadata for the current directory or a specified path:
   - Prints first commit author/date (approx repo creation info), remote URL, approximate clone date (best-effort via reflog), and a lines-of-code summary using `cloc` when available or a fallback line-count by file extension.
