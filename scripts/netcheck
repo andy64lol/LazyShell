@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+START=$(awk 'NR>2 {rx+=$2; tx+=$10} END {print rx+tx}' /proc/net/dev)
+
+sleep 60
+
+END=$(awk 'NR>2 {rx+=$2; tx+=$10} END {print rx+tx}' /proc/net/dev)
+
+BYTES=$((END-START))
+KB=$((BYTES/1024))
+MB=$(awk "BEGIN {printf \"%.2f\", $KB/1024}")
+
+if [ "$KB" -eq 0 ]; then
+    SPEED="disconnected"
+elif [ "$KB" -lt 200 ]; then
+    SPEED="very slow"
+elif [ "$KB" -lt 1000 ]; then
+    SPEED="slow"
+elif [ "$KB" -lt 10000 ]; then
+    SPEED="medium"
+elif [ "$KB" -lt 50000 ]; then
+    SPEED="fast"
+else
+    SPEED="very fast"
+fi
+
+if [ "$KB" -ge 1024 ]; then
+    echo "Network usage: $MB MB/min"
+else
+    echo "Network usage: $KB KB/min"
+fi
+
+echo "Connection speed: $SPEED"

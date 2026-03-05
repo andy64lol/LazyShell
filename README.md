@@ -29,8 +29,8 @@ sudo chmod +x /usr/local/bin/<script>
 
 - `activation` — Copy scripts from the `scripts/` directory to `/usr/local/bin`, make them executable, skip certain files (README.md, LICENSE, activation). Supports `-h|--help` and tries to run `gitupdate LazyShell` if available.
 
-- `app_store` — Search for packages across all available package managers on the system. Usage:
-  - `app_store <package_name>` — searches for the package using all detected package managers (apt, dnf, yum, pacman, zypper) and shows similar installed packages.
+- `appstore` — Search for packages across all available package managers on the system. Usage:
+  - `appstore <package_name>` — searches for the package using all detected package managers (apt, dnf, yum, pacman, zypper) and shows similar installed packages.
 
 - `del` — Flexible removal helper. Usage patterns:
   - `del <name>` — tries `sudo apt remove -y <name>` (if apt available) or falls back to `rm -i <name>`.
@@ -109,6 +109,127 @@ sudo chmod +x /usr/local/bin/<script>
 
 - `upt` — Preview `apt upgrade` (runs `sudo apt -s upgrade` to simulate), then prompts to run `sudo apt upgrade`.
 
+- `backup` — Smart backup utility:
+  - `backup` — create timestamped backup of current directory.
+  - `backup /path/to/dir` — backup specific directory.
+  - `backup -c config` — use custom config file.
+  - `backup -e .tar.gz` — custom archive extension.
+  - `backup --encrypt` — create encrypted backup.
+  - `backup --restore` — list and restore from backups.
+
+- `cloudbackup` — Cloud storage backup:
+  - `cloudbackup` — backup current directory to cloud.
+  - `cloudbackup /path` — backup specific path.
+  - `cloudbackup --service dropbox` — specify cloud service.
+  - `cloudbackup --sync` — sync instead of full backup.
+  - `cloudbackup --list` — list existing backups.
+
+- `cloudrestore` — Restore from cloud backups:
+  - `cloudrestore` — restore latest backup.
+  - `cloudrestore --date 2025-01-01` — restore from specific date.
+  - `cloudrestore --list` — list available backups.
+  - `cloudrestore --select` — interactive restore selection.
+
+- `dupefind` — Smart duplicate finder:
+  - `dupefind` — find duplicates in current directory.
+  - `dupefind /path` — find duplicates in specific directory.
+  - `dupefind -d` — interactive delete mode.
+  - `dupefind -m ./dups` — move duplicates to folder.
+  - `dupefind -s` — use SHA256 hash (slower but more accurate).
+  - `dupefind -h` — show help.
+
+- `findex` — Fuzzy file search:
+  - `findex <pattern>` — fuzzy name search.
+  - `findex -c "text"` — content search.
+  - `findex -r "^regex$"` — regex search.
+  - `findex -p` — show preview.
+  - `findex -i` — case insensitive search.
+
+- `diskusage` — Disk usage visualizer:
+  - `diskusage` — show tree with sizes for current directory.
+  - `diskusage /path` — show specific directory.
+  - `diskusage -s -h` — sort by size, human readable.
+  - `diskusage -p` — show percentages.
+  - `diskusage -d 2` — limit depth to 2 levels.
+  - `diskusage -x` — exclude hidden files.
+
+- `clipper` — Clipboard history manager:
+  - `clipper` — show clipboard history.
+  - `clipper add "text"` — add text to history.
+  - `clipper search "query"` — search history.
+  - `clipper paste 3` — paste item #3.
+  - `clipper top` — paste most recent item.
+  - `clipper clear` — clear all history.
+
+- `hunt` — Process explorer:
+  - `hunt` — show top processes.
+  - `hunt -m` — sort by memory usage.
+  - `hunt -f chrome` — filter processes by name.
+  - `hunt -t` — tree view of processes.
+  - `hunt -K -f chrome` — kill all processes matching filter.
+
+- `diskcheck` — Disk monitor & cleanup:
+  - `diskcheck` — show disk usage summary.
+  - `diskcheck -d` — detailed view.
+  - `diskcheck -c` — cleanup suggestions.
+  - `diskcheck -a -t 85` — alert if usage > 85%.
+  - `diskcheck -c -f` — force cleanup mode.
+
+- `pingburst` — Multi-host ping tool:
+  - `pingburst` — ping default hosts.
+  - `pingburst host1 host2` — ping multiple hosts.
+  - `pingburst -l -a server.com` — log with alerts.
+  - `pingburst -r` — show report.
+  - `pingburst -c 10` — count packets.
+
+- `fetch` — Batch URL downloader:
+  - `fetch url1 url2` — download multiple URLs.
+  - `fetch -f urls.txt` — read URLs from file.
+  - `fetch -o ./dir url` — custom output directory.
+  - `fetch -c url` — continue/resume download.
+  - `fetch -q` — quiet mode.
+
+- `timer` — Multi-timer CLI:
+  - `timer` — show all timers.
+  - `timer start 25` — start 25 minute timer.
+  - `timer start 5 break` — start labeled timer.
+  - `timer stop 1` — stop timer #1.
+  - `timer -n start 10 test` — timer with notification.
+  - `timer log` — show timer history.
+  - `timer clear` — clear all timers.
+
+- `randpass` — Random password generator:
+  - `randpass` — generate 16 char password.
+  - `randpass -l 24` — custom length.
+  - `randpass -s` — include symbols.
+  - `randpass -m` — memorable word-based.
+  - `randpass -p` — PIN code.
+  - `randpass -C` — copy to clipboard.
+
+- `netcheck` — Network connectivity checker:
+  - `netcheck` — check basic connectivity.
+  - `netcheck -d` — detailed output.
+  - `netcheck -s` — speed test.
+  - `netcheck --dns` — DNS lookup test.
+  - `netcheck -t` — trace route.
+
+- `pkgscan` — Package scanner:
+  - `pkgscan` — scan installed packages.
+  - `pkgscan -u` — check for updates.
+  - `pkgscan -v` — verbose mode.
+  - `pkgscan -o` — old packages only.
+
+- `restore` — File restore utility:
+  - `restore` — list available restores.
+  - `restore 1` — restore backup #1.
+  - `restore --date 2025-01-01` — restore from date.
+  - `restore --preview` — preview restore contents.
+
+- `rooted` — Root/privilege check:
+  - `rooted` — check if running as root.
+  - `rooted -v` — verbose output.
+  - `rooted -c "command"` — run command with elevated privileges.
+
 ### Examples
 
 Install all scripts to your PATH:
@@ -139,6 +260,139 @@ Show repo info for another repo:
 ```
 bash
 inforepo /path/to/project
+```
+
+Find and remove duplicate files:
+
+```
+bash
+dupefind ./photos
+dupefind -d ./photos    # Interactive delete mode
+dupefind -m ./dups ./music  # Move duplicates to folder
+```
+
+Search for files with fuzzy matching:
+
+```
+bash
+findex "config"
+findex -c "TODO"        # Search file contents
+findex -r "^main.*\.js$"  # Regex search
+```
+
+Check disk usage:
+
+```
+bash
+diskusage
+diskusage -s -h         # Sort by size, human readable
+diskusage -d 2          # Limit to 2 levels deep
+diskusage /home/user    # Check specific directory
+```
+
+Manage clipboard history:
+
+```
+bash
+clipper add "Remember this"
+clipper                 # Show history
+clipper search "text"  # Search history
+clipper paste 2        # Paste item #2
+```
+
+Find and manage processes:
+
+```
+bash
+hunt                    # Show top processes
+hunt -f chrome         # Filter chrome processes
+hunt -t                # Tree view
+hunt -K -f chrome      # Kill all chrome processes
+```
+
+Monitor disk health:
+
+```
+bash
+diskcheck              # Quick summary
+diskcheck -d           # Detailed view
+diskcheck -c           # Cleanup suggestions
+diskcheck -a -t 80    # Alert if >80%
+```
+
+Ping multiple hosts:
+
+```
+bash
+pingburst 8.8.8.8 1.1.1.1
+pingburst -l -a server.com  # Log with alerts
+pingburst -r                # Show report
+```
+
+Download multiple files:
+
+```
+bash
+fetch url1.zip url2.zip
+fetch -f urls.txt           # From file
+fetch -o ./downloads url    # Custom output dir
+```
+
+Use timers:
+
+```
+bash
+timer start 25 focus       # 25 min focus timer
+timer start 5 break        # 5 min break
+timer                      # Show all timers
+timer stop 1               # Stop timer #1
+timer log                  # View history
+```
+
+Generate passwords:
+
+```
+bash
+randpass                   # 16 char password
+randpass -l 32            # 32 char password
+randpass -s               # Include symbols
+randpass -m               # Memorable words
+randpass -p               # PIN code
+randpass -C               # Copy to clipboard
+```
+
+Check network connectivity:
+
+```
+bash
+netcheck                  # Basic check
+netcheck -d              # Detailed output
+netcheck -s              # Speed test
+netcheck --dns           # DNS lookup
+netcheck -t              # Trace route
+```
+
+Backup and restore:
+
+```
+bash
+backup
+backup /home/user/documents
+backup --encrypt
+backup --restore
+
+cloudbackup ./project
+cloudrestore --list
+restore 1
+```
+
+Check root privileges:
+
+```
+bash
+rooted                   # Check if root
+rooted -v               # Verbose output
+rooted -c "apt update" # Run with privileges
 ```
 
 ### Notes & safety

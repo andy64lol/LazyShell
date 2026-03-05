@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+TOP_DIR=$(pwd)
+
+if [ ! -d "$TOP_DIR/.git" ]; then
+    echo "ERROR: Not a Git repository."
+    exit 1
+fi
+
+if [ "$1" == "--local" ]; then
+    COMMIT_HASH="$2"
+    if [ -z "$COMMIT_HASH" ]; then
+        echo "Usage: gitrestore --local <commit-hash>"
+        exit 1
+    fi
+    read -p "This will reset all files to $COMMIT_HASH and discard uncommitted changes. Continue? (y/N): " CONFIRM
+    if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+        echo "Aborted."
+        exit 1
+    fi
+    git reset --hard "$COMMIT_HASH"
+    git clean -fd
+    echo "Repository restored locally to commit $COMMIT_HASH."
+
+elif [ "$1" == "--remote" ]; then
+    COMMIT_HASH="$2"
+    REMOTE_NAME="$3"
+    if [ -z "$COMMIT_HASH" ] || [ -z "$REMOTE_NAME" ]; then
+        echo "Usage: gitrestore --remote <commit-hash> <remote>"
+        exit 1
+    fi
+    echo "Fetching from remote '$REMOTE_NAME'..."
+    git fetch "$REMOTE_NAME"
+    read -p "This will reset all files to $COMMIT_HASH from $REMOTE_NAME and discard uncommitted changes. Continue? (y/N): " CONFIRM
+    if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+        echo "Aborted."
+        exit 1
+    fi
+    git reset --hard "$COMMIT_HASH"
+    git clean -fd
+    echo "Repository restored from remote $REMOTE_NAME to commit $COMMIT_HASH."
+
+else
+    echo "Usage: gitrestore --local <commit-hash> | --remote <commit-hash> <remote>"
+    exit 1
+fi

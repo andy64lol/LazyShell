@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+TOP_DIR=$(pwd)
+BACKUP_DIR="$TOP_DIR/backups"
+BACKUP_LIST="$TOP_DIR/.backuplists"
+ENV_FILE="$TOP_DIR/.env"
+
+mkdir -p "$BACKUP_DIR"
+touch "$BACKUP_LIST"
+
+if [ -f "$ENV_FILE" ]; then
+    export $(grep -v '^#' "$ENV_FILE" | xargs)
+fi
+
+if [ -z "$GITHUB_TOKEN" ]; then
+    read -s -p "Enter GitHub token: " GITHUB_TOKEN
+    echo
+    read -p "Save token to .env? (y/N): " SAVE_TOKEN
+    if [[ "$SAVE_TOKEN" =~ ^[Yy]$ ]]; then
+        echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> "$ENV_FILE"
+    fi
+fi
+
+if [ -z "$GITHUB_TOKEN" ]; then
+    echo "ERROR: GitHub token required."
+    exit 1
+fi
+
+read -p "GitHub repo (user/repo): " REPO
+if [ -z "$REPO" ]; then
+    echo "ERROR: repo required."
+    exit 1
+fi
+
+TMP_DIR=$(mktemp -d)
+
+git clone "https://$GITHUB_TOKEN@github.com/$REPO.git" "$TMP_DIR" >/dev/null 2>&1
+
+if [ ! -d "$TMP_DIR/backups" ]; then
+    echo "ERROR: No backups found in repo."
+    rm -rf "$TMP_DIR"
+    exit 1
+fi
+
+for FILE in "$TMP_DIR/backups/"*.zip; do
+    [ -e "$FILE" ] || continue
+
+    NAME=$(basename "$FILE")
+    UUID=$(echo "$NAME" | sed -E 's/.*_([a-f0-9]+)\.zip/\1/')
+
+    cp "$FILE" "$BACKUP_DIR/$NAME"
+
+    if ! grep -q "$UUID" "$BACKUP_LIST"; then
+        echo "$UUID backups/$NAME" >> "$BACKUP_LIST"
+    fi
+done
+
+echo "Cloud backups restored."
+
+rm -rf "$TMP_DIR"

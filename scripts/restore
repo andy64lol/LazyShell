@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+TOP_DIR=$(pwd)
+BACKUP_LIST="$TOP_DIR/.backuplists"
+RESTORE_IGNORE="$TOP_DIR/.restoreignore"
+
+if [ ! -f "$BACKUP_LIST" ]; then
+    echo "ERROR: .backuplists not found in project root ($TOP_DIR)"
+    echo "You need a .backuplists file to restore backups."
+    exit 1
+fi
+
+read -p "Enter UUID to restore: " UUID
+
+BACKUP_PATH=$(grep "^$UUID " "$BACKUP_LIST" | awk '{print $2}')
+
+if [ -z "$BACKUP_PATH" ] || [ ! -f "$TOP_DIR/$BACKUP_PATH" ]; then
+    echo "ERROR: Backup with UUID $UUID not found."
+    exit 1
+fi
+
+# Build list of files to preserve
+PRESERVE_ARGS=()
+if [ -f "$RESTORE_IGNORE" ]; then
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        PRESERVE_ARGS+=( ! -path "$TOP_DIR/$line/*" ! -name "$line" )
+    done < "$RESTORE_IGNORE"
+fi
+
+# Delete all files except preserve list and backups folder
+find "$TOP_DIR" -mindepth 1 "${PRESERVE_ARGS[@]}" ! -path "$TOP_DIR/backups/*" -exec rm -rf {} +
+
+# Unzip backup
+unzip -q "$TOP_DIR/$BACKUP_PATH" -d "$TOP_DIR"
+
+echo "Backup $UUID restored successfully."

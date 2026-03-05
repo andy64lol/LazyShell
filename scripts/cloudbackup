@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+TOP_DIR=$(pwd)
+BACKUP_DIR="$TOP_DIR/backups"
+BACKUP_LIST="$TOP_DIR/.backuplists"
+ENV_FILE="$TOP_DIR/.env"
+
+if [ ! -d "$BACKUP_DIR" ]; then
+    echo "ERROR: No backups directory found. Run backup first."
+    exit 1
+fi
+
+# Load token from .env if exists
+if [ -f "$ENV_FILE" ]; then
+    export $(grep -v '^#' "$ENV_FILE" | xargs)
+fi
+
+# Check for GITHUB_TOKEN
+if [ -z "$GITHUB_TOKEN" ]; then
+    read -s -p "Enter your GitHub token: " GITHUB_TOKEN
+    echo
+    read -p "Save token to .env for future use? (y/N): " SAVE_TOKEN
+    if [[ "$SAVE_TOKEN" =~ ^[Yy]$ ]]; then
+        echo "GITHUB_TOKEN=$GITHUB_TOKEN" >> "$ENV_FILE"
+        echo "Token saved to $ENV_FILE"
+    fi
+fi
+
+if [ -z "$GITHUB_TOKEN" ]; then
+    echo "ERROR: GitHub token required."
+    exit 1
+fi
+
+read -p "Enter cloud repo name: " REPO_NAME
+if [ -z "$REPO_NAME" ]; then
+    echo "Repo name cannot be empty."
+    exit 1
+fi
+
+TMP_DIR=$(mktemp -d)
+cp -r "$BACKUP_DIR" "$TMP_DIR/"
+cp "$BACKUP_LIST" "$TMP_DIR/"
+
+cd "$TMP_DIR" || exit 1
+
+git init
+git branch -M main
+git add .
+git commit -m "Initial backup push"
+
+# Create private repo via GitHub API
+USERNAME=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user | grep -Po '"login": *"\K[^"]*')
+curl -s -H "Authorization: token $GITHUB_TOKEN" \
+     -d "{\"name\":\"$REPO_NAME\",\"private\":true}" \
+     https://api.github.com/user/repos
+
+REMOTE_URL="https://github.com/$USERNAME/$REPO_NAME.git"
+git remote add origin "$REMOTE_URL"
+git push -u origin main
+
+echo "Cloud backup pushed to $REMOTE_URL"
+
+cd "$TOP_DIR" || exit 1
+rm -rf "$TMP_DIR"

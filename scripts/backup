@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+TOP_DIR=$(pwd)
+BACKUP_DIR="$TOP_DIR/backups"
+IGNORE_FILE="$TOP_DIR/.ignorebackup"
+BACKUP_LIST="$TOP_DIR/.backuplists"
+
+generate_uuid() {
+    date +%s%N | sha1sum | cut -c1-8
+}
+
+if [ ! -f "$IGNORE_FILE" ]; then
+    echo "ERROR: .ignorebackup not found in project root ($TOP_DIR)"
+    echo "Create a .ignorebackup file to list files/folders to exclude."
+    exit 1
+fi
+
+EXCLUDE_TMP=$(mktemp)
+cp "$IGNORE_FILE" "$EXCLUDE_TMP"
+echo "backups/" >> "$EXCLUDE_TMP"
+
+FIND_ARGS=()
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    FIND_ARGS+=( ! -path "$TOP_DIR/$line/*" ! -name "$line" )
+done < "$EXCLUDE_TMP"
+
+find "$TOP_DIR" -mindepth 1 "${FIND_ARGS[@]}" -print > /tmp/filelist.txt
+rm "$EXCLUDE_TMP"
+
+mkdir -p "$BACKUP_DIR"
+UUID=$(generate_uuid)
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+DIR_NAME=$(basename "$TOP_DIR")
+ZIP_NAME="${DIR_NAME}_backup_${TIMESTAMP}_${UUID}.zip"
+ZIP_PATH="$BACKUP_DIR/$ZIP_NAME"
+
+zip -r "$ZIP_PATH" -@ < /tmp/filelist.txt >/dev/null
+rm /tmp/filelist.txt
+
+echo "Backup created: $ZIP_NAME"
+echo "Saved to: $BACKUP_DIR"
+echo "UUID: $UUID"
+
+# Save only UUID and relative path to .backuplists
+echo "$UUID backups/$ZIP_NAME" >> "$BACKUP_LIST"

@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+
+SHOW_DEB=false
+SHOW_EXE=false
+SHOW_BIN=false
+SHOW_DEV=false
+SHOW_FLATPAK=false
+SHOW_SNAP=false
+SHOW_APPIMAGES=false
+SHOW_CARGO=false
+SHOW_GO=false
+SHOW_PIP=false
+SHOW_NPM=false
+SHOW_ALL=true
+
+for arg in "$@"; do
+    case $arg in
+        --deb) SHOW_DEB=true; SHOW_ALL=false ;;
+        --executables) SHOW_EXE=true; SHOW_ALL=false ;;
+        --bin) SHOW_BIN=true; SHOW_ALL=false ;;
+        --dev-packages) SHOW_DEV=true; SHOW_ALL=false ;;
+        --flatpak) SHOW_FLATPAK=true; SHOW_ALL=false ;;
+        --snap) SHOW_SNAP=true; SHOW_ALL=false ;;
+        --appimages) SHOW_APPIMAGES=true; SHOW_ALL=false ;;
+        --cargo) SHOW_CARGO=true; SHOW_ALL=false ;;
+        --go) SHOW_GO=true; SHOW_ALL=false ;;
+        --pip) SHOW_PIP=true; SHOW_ALL=false ;;
+        --npm) SHOW_NPM=true; SHOW_ALL=false ;;
+        --all) SHOW_ALL=true ;;
+        *) echo "Unknown option: $arg"; exit 1 ;;
+    esac
+done
+
+[ "$SHOW_ALL" = true ] && SHOW_DEB=true && SHOW_EXE=true && SHOW_BIN=true && SHOW_DEV=true \
+    && SHOW_FLATPAK=true && SHOW_SNAP=true && SHOW_APPIMAGES=true && SHOW_CARGO=true \
+    && SHOW_GO=true && SHOW_PIP=true && SHOW_NPM=true
+
+# DEB packages
+if [ "$SHOW_DEB" = true ]; then
+    echo "DEB PACKAGES"
+    echo "------------"
+    command -v dpkg >/dev/null 2>&1 && dpkg-query -W -f='${Package}\n'
+    echo
+fi
+
+# Executables in PATH
+if [ "$SHOW_EXE" = true ]; then
+    echo "EXECUTABLE PROGRAMS"
+    echo "-------------------"
+    for dir in $(echo "$PATH" | tr ":" "\n"); do
+        [ -d "$dir" ] || continue
+        find "$dir" -maxdepth 1 -type f -executable 2>/dev/null
+    done | xargs -n1 basename 2>/dev/null | sort -u
+    echo
+fi
+
+# Binaries (AppImages + Cargo + Go)
+if [ "$SHOW_BIN" = true ]; then
+    SHOW_APPIMAGES=true
+    SHOW_CARGO=true
+    SHOW_GO=true
+fi
+
+# AppImages
+if [ "$SHOW_APPIMAGES" = true ]; then
+    echo "APPIMAGES"
+    echo "---------"
+    find "$HOME" -type f -iname "*.AppImage" 2>/dev/null
+    echo
+fi
+
+# Cargo
+if [ "$SHOW_CARGO" = true ]; then
+    echo "CARGO BINARIES"
+    echo "--------------"
+    [ -d "$HOME/.cargo/bin" ] && ls "$HOME/.cargo/bin"
+    echo
+fi
+
+# Go
+if [ "$SHOW_GO" = true ]; then
+    echo "GO BINARIES"
+    echo "-----------"
+    [ -d "$HOME/go/bin" ] && ls "$HOME/go/bin"
+    echo
+fi
+
+# Dev packages (pip/npm)
+if [ "$SHOW_DEV" = true ]; then
+    SHOW_PIP=true
+    SHOW_NPM=true
+fi
+
+# Pip
+if [ "$SHOW_PIP" = true ]; then
+    echo "PIP GLOBAL PACKAGES"
+    echo "-------------------"
+    if command -v pip >/dev/null 2>&1; then
+        pip list --format=freeze | cut -d= -f1
+    elif command -v pip3 >/dev/null 2>&1; then
+        pip3 list --format=freeze | cut -d= -f1
+    fi
+    echo
+fi
+
+# Npm
+if [ "$SHOW_NPM" = true ]; then
+    echo "NPM GLOBAL PACKAGES"
+    echo "-------------------"
+    if command -v npm >/dev/null 2>&1; then
+        npm list -g --depth=0 2>/dev/null | tail -n +2 | awk -F/ '{print $NF}' | cut -d@ -f1
+    fi
+    echo
+fi
+
+# Flatpak
+if [ "$SHOW_FLATPAK" = true ]; then
+    echo "FLATPAK APPS"
+    echo "------------"
+    command -v flatpak >/dev/null 2>&1 && flatpak list --app --columns=application
+    echo
+fi
+
+# Snap
+if [ "$SHOW_SNAP" = true ]; then
+    echo "SNAP PACKAGES"
+    echo "-------------"
+    command -v snap >/dev/null 2>&1 && snap list | awk 'NR>1 {print $1}'
+    echo
+fi

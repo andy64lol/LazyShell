@@ -25,8 +25,8 @@ Included Scripts
 ----------------
 activation  - Copy scripts from scripts/ directory to /usr/local/bin, make executable, skip certain files. Supports -h|--help, auto-runs gitupdate if available.
 
-app_store   - Search for packages across all available package managers:
-                app_store <package_name>  # search apt, dnf, yum, pacman, zypper
+appstore   - Search for packages across all available package managers:
+                appstore <package_name>  # search apt, dnf, yum, pacman, zypper
 
 del         - Flexible removal helper:
                 del <name>      # apt remove or rm -i
@@ -173,6 +173,113 @@ Batch auto-commit repositories:
 
 Show repo info for another repo:
     inforepo /path/to/project
+
+Find and remove duplicate files:
+    dupefind ./photos
+    dupefind -d ./photos         # Interactive delete mode
+    dupefind -m ./dups ./music   # Move duplicates to folder
+    dupefind -s                  # SHA256 hash mode
+
+Search for files with fuzzy matching:
+    findex "config"
+    findex -c "TODO"             # Search file contents
+    findex -r "^main.*\.js$"     # Regex search
+    findex -p                    # Show preview
+    findex -i                    # Case insensitive
+
+Check disk usage:
+    diskusage
+    diskusage -s -h              # Sort by size, human readable
+    diskusage -d 2               # Limit depth to 2 levels
+    diskusage -p                 # Show percentages
+    diskusage /home/user         # Check specific directory
+
+Manage clipboard history:
+    clipper add "Remember this"
+    clipper                      # Show history
+    clipper search "text"       # Search history
+    clipper paste 2             # Paste item #2
+    clipper top                 # Paste most recent
+    clipper clear               # Clear all history
+
+Find and manage processes:
+    hunt                         # Show top processes
+    hunt -m                     # Sort by memory
+    hunt -f chrome              # Filter chrome
+    hunt -t                      # Tree view
+    hunt -K -f chrome           # Kill all chrome
+
+Monitor disk health:
+    diskcheck                    # Quick summary
+    diskcheck -d                 # Detailed view
+    diskcheck -c                 # Cleanup suggestions
+    diskcheck -a -t 80           # Alert if >80%
+    diskcheck -c -f              # Force cleanup
+
+Ping multiple hosts:
+    pingburst 8.8.8.8 1.1.1.1
+    pingburst host1 host2 host3
+    pingburst -l -a server.com   # Log with alerts
+    pingburst -r                 # Show report
+    pingburst -c 10              # Count packets
+
+Download multiple files:
+    fetch url1.zip url2.zip
+    fetch -f urls.txt            # From file
+    fetch -o ./downloads url     # Custom output
+    fetch -c url                 # Resume download
+    fetch -q                     # Quiet mode
+
+Use timers:
+    timer start 25 focus         # 25 min focus timer
+    timer start 5 break          # 5 min break
+    timer                        # Show all timers
+    timer stop 1                 # Stop timer #1
+    timer -n start 10 test       # With notification
+    timer log                    # View history
+    timer clear                  # Clear all timers
+
+Generate passwords:
+    randpass                     # 16 char password
+    randpass -l 32               # Custom length
+    randpass -s                  # Include symbols
+    randpass -m                  # Memorable words
+    randpass -p                  # PIN code
+    randpass -C                  # Copy to clipboard
+
+Check network connectivity:
+    netcheck                     # Basic check
+    netcheck -d                  # Detailed output
+    netcheck -s                  # Speed test
+    netcheck --dns               # DNS lookup
+    netcheck -t                  # Trace route
+
+Backup and restore:
+    backup
+    backup /home/user/documents
+    backup -c config             # Custom config
+    backup --encrypt             # Encrypted backup
+    backup --restore             # List/restore
+
+    cloudbackup ./project
+    cloudbackup --service dropbox
+    cloudbackup --sync
+    cloudbackup --list
+
+    cloudrestore
+    cloudrestore --date 2025-01-01
+    cloudrestore --list
+    cloudrestore --select
+
+    restore
+    restore 1
+    restore --date 2025-01-01
+    restore --preview
+
+Check root privileges:
+    rooted                       # Check if root
+    rooted -v                    # Verbose output
+    rooted -c "apt update"       # Run with privileges
 
 Notes & Safety
 ---------------

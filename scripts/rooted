@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+printf "%-20s %-10s %-6s\n" "USER" "UID" "ROOT"
+
+getent passwd | while IFS=: read -r user _ uid _ _ _ _
+do
+    if [ "$uid" -eq 0 ]; then
+        root="YES"
+    else
+        root="NO"
+    fi
+
+    printf "%-20s %-10s %-6s\n" "$user" "$uid" "$root"
+done
