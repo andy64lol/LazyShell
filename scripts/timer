@@ -1,0 +1,254 @@
+#!/bin/bash
+# timer — Multi-timer CLI with labels, logs, and notifications
+
+TIMER_DIR="${TIMER_DIR:-$HOME/.timer}"
+LOG_FILE="$TIMER_DIR/logs"
+MAX_TIMERS=10
+
+usage() {
+    cat <<EOF
+timer — Multi-timer CLI with labels
+------------------------------------
+Usage: timer [options] [command]
+
+Commands:
+    (none)           Show active timers
+    start <mins> [label]  Start a new timer
+    stop <n>         Stop timer n
+    stopall          Stop all timers
+    log              Show timer history
+    clear            Clear completed timers
+
+Options:
+    -h, --help       Show this help
+    -n, --notify     Enable desktop notifications
+    -s, --sound      Enable sound notification
+    -v, --verbose    Show verbose output
+
+Examples:
+    timer                    # Show active timers
+    timer start 25           # Start 25-minute timer (Pomodoro)
+    timer start 5 break      # Start 5-minute break timer
+    timer start 30 workout   # Start 30-minute workout timer
+    timer stop 1             # Stop timer #1
+    timer stopall            # Stop all timers
+    timer log                # Show timer history
+    timer -n start 10 test   # Start with notification
+
+Environment:
+    TIMER_DIR   Directory for timer storage (default: ~/.timer)
+
+EOF
+    exit
+}
+
+# Ensure timer directory exists
+mkdir -p "$TIMER_DIR"
+mkdir -p "$LOG_FILE"
+
+# Get current timers
+get_timers() {
+    ls -1 "$TIMER_DIR"/*.timer 2>/dev/null | sort
+}
+
+# Show notification
+notify() {
+    local LABEL="$1"
+    local DURATION="$2"
+    
+    if command -v notify-send &>/dev/null; then
+        notify-send "Timer Complete!" "$LABEL finished after $DURATION minutes"
+    elif command -v osascript &>/dev/null; then
+        osascript -e 'display notification "'"$LABEL finished after $DURATION minutes"'" with title "Timer Complete!"'
+    fi
+    
+    # Play sound if available
+    if command -v paplay &>/dev/null; then
+        paplay /usr/share/sounds/freedesktop/stereo/complete.oga 2>/dev/null
+    elif command -v aplay &>/dev/null; then
+        aplay /usr/share/sounds/alsa/Front_Center.wav 2>/dev/null
+    fi
+}
+
+# Start timer
+start_timer() {
+    local MINS="$1"
+    local LABEL="${2:-Timer}"
+    
+    # Check max timers
+    local COUNT=$(get_timers | wc -l)
+    if [[ $COUNT -ge $MAX_TIMERS ]]; then
+        echo "Maximum number of timers ($MAX_TIMERS) reached. Stop some timers first."
+        return 1
+    fi
+    
+    local TIMESTAMP=$(date +%s)
+    local END_TIME=$((TIMESTAMP + MINS * 60))
+    local TIMER_FILE="$TIMER_DIR/timer_$TIMESTAMP.timer"
+    
+    echo "$END_TIME|$LABEL|$MINS" > "$TIMER_FILE"
+    
+    echo "✓ Started: $LABEL for $MINS minutes"
+    echo "  Timer #$(get_timers | grep -n "$TIMER_FILE" | cut -d: -f1)"
+    
+    # Log
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | STARTED | $LABEL | ${MINS}m" >> "$LOG_FILE/history.log"
+}
+
+# Stop timer
+stop_timer() {
+    local NUM="$1"
+    local TIMERS=($(get_timers))
+    
+    if [[ $NUM -gt ${#TIMERS[@]} ]] || [[ $NUM -lt 1 ]]; then
+        echo "Invalid timer number: $NUM"
+        return 1
+    fi
+    
+    local TIMER_FILE="${TIMERS[$((NUM - 1))]}"
+    local END_TIME=$(cat "$TIMER_FILE" | cut -d'|' -f1)
+    local LABEL=$(cat "$TIMER_FILE" | cut -d'|' -f2)
+    local DURATION=$(cat "$TIMER_FILE" | cut -d'|' -f3)
+    local TIMESTAMP=$(date +%s)
+    local REMAINING=$((END_TIME - TIMESTAMP))
+    
+    rm -f "$TIMER_FILE"
+    
+    if [[ $REMAINING -gt 0 ]]; then
+        echo "✓ Stopped: $LABEL (was $((REMAINING / 60))m ${REMAINING % 60}s remaining)"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') | STOPPED | $LABEL | ${REMAINING}s remaining" >> "$LOG_FILE/history.log"
+    else
+        echo "✓ Completed: $LABEL (was $DURATION minutes)"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') | COMPLETED | $LABEL | ${DURATION}m" >> "$LOG_FILE/history.log"
+    fi
+}
+
+# Stop all timers
+stop_all() {
+    for TIMER in $(get_timers); do
+        local LABEL=$(cat "$TIMER" | cut -d'|' -f2)
+        rm -f "$TIMER"
+        echo "✓ Stopped: $LABEL"
+    done
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | STOPPED | ALL | All timers stopped" >> "$LOG_FILE/history.log"
+}
+
+# Show active timers
+show_timers() {
+    local TIMERS=($(get_timers))
+    
+    echo "Active Timers"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    if [[ ${#TIMERS[@]} -eq 0 ]]; then
+        echo "No active timers."
+        return
+    fi
+    
+    local NUM=1
+    for TIMER in "${TIMERS[@]}"; do
+        local END_TIME=$(cat "$TIMER" | cut -d'|' -f1)
+        local LABEL=$(cat "$TIMER" | cut -d'|' -f2)
+        local DURATION=$(cat "$TIMER" | cut -d'|' -f3)
+        local TIMESTAMP=$(date +%s)
+        local REMAINING=$((END_TIME - TIMESTAMP))
+        
+        if [[ $REMAINING -le 0 ]]; then
+            # Timer completed
+            if $NOTIFY; then
+                notify "$LABEL" "$DURATION"
+            fi
+            echo "✓ [#$NUM] $LABEL - COMPLETED!"
+            rm -f "$TIMER"
+            echo "$(date '+%Y-%m-%d %H:%M:%S') | COMPLETED | $LABEL | ${DURATION}m" >> "$LOG_FILE/history.log"
+        else
+            local MINS=$((REMAINING / 60))
+            local SECS=$((REMAINING % 60))
+            printf "[%d] %-20s %2dm %02ds remaining\n" "$NUM" "$LABEL" "$MINS" "$SECS"
+        fi
+        
+        NUM=$((NUM + 1))
+    done
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Total active: ${#TIMERS[@]}"
+}
+
+# Show log
+show_log() {
+    if [[ ! -f "$LOG_FILE/history.log" ]]; then
+        echo "No timer history."
+        return
+    fi
+    
+    echo "Timer History"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    tail -20 "$LOG_FILE/history.log" | while IFS='|' read -r date status label duration; do
+        printf "%-20s | %-10s | %-15s | %s\n" "$date" "$status" "$label" "$duration"
+    done
+}
+
+# Parse arguments
+NOTIFY=false
+SOUND=false
+VERBOSE=false
+CMD=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -n|--notify) NOTIFY=true; shift ;;
+        -s|--sound) SOUND=true; NOTIFY=true; shift ;;
+        -v|--verbose) VERBOSE=true; shift ;;
+        start|stop|stopall|log|clear) CMD="$1"; shift ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) break ;;
+    esac
+done
+
+case "$CMD" in
+    start)
+        MINS="$1"
+        LABEL="${2:-Timer}"
+        
+        if ! [[ "$MINS" =~ ^[0-9]+$ ]]; then
+            echo "Error: Please specify minutes as a number."
+            exit 1
+        fi
+        
+        if [[ $MINS -lt 1 ]]; then
+            echo "Error: Minimum 1 minute."
+            exit 1
+        fi
+        
+        start_timer "$MINS" "$LABEL"
+        ;;
+    stop)
+        NUM="$1"
+        if [[ -z "$NUM" ]]; then
+            echo "Usage: timer stop <n>"
+            exit 1
+        fi
+        stop_timer "$NUM"
+        ;;
+    stopall)
+        stop_all
+        ;;
+    log)
+        show_log
+        ;;
+    clear)
+        # Clear completed (expired) timers
+        for TIMER in $(get_timers); do
+            END_TIME=$(cat "$TIMER" | cut -d'|' -f1)
+            TIMESTAMP=$(date +%s)
+            if [[ $((END_TIME - TIMESTAMP)) -le 0 ]]; then
+                rm -f "$TIMER"
+            fi
+        done
+        echo "Cleared completed timers."
+        ;;
+    *)
+        show_timers
+        ;;
+esac

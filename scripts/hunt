@@ -1,0 +1,194 @@
+#!/bin/bash
+# hunt — Advanced process explorer with hierarchy, filters, and bulk kill
+
+usage() {
+    cat <<EOF
+hunt — Advanced process explorer
+--------------------------------
+Usage: hunt [options] [pattern]
+
+Options:
+    -h, --help       Show this help
+    -p, --pid        Show process tree by PID
+    -u, --user       Filter by username
+    -m, --memory     Sort by memory usage
+    -c, --cpu        Sort by CPU usage
+    -f, --filter     Filter processes (like 'chrome', 'python', etc.)
+    -k, --kill       Kill selected processes
+    -K, --kill-all   Kill all processes matching filter
+    -s, --signal     Signal to send (default: TERM)
+    -t, --tree       Show process tree
+    -l, --limit N    Limit number of results (default: 20)
+    -r, --recursive  Show full process tree
+
+Default: Shows top processes by CPU usage
+
+Examples:
+    hunt                      # Show top processes
+    hunt -m                   # Sort by memory
+    hunt -f chrome            # Filter processes
+    hunt -t                   # Tree view
+    hunt -k 1234              # Kill PID 1234
+    hunt -K -f chrome         # Kill all chrome processes
+    hunt -u username          # Show user's processes
+    hunt -r                   # Full process tree
+
+Signal Types:
+    TERM (default), KILL, HUP, INT, STOP
+
+EOF
+    exit
+}
+
+# Defaults
+SHOW_TREE=false
+FILTER=""
+USER=""
+SORT_BY="cpu"
+LIMIT=20
+KILL_MODE=false
+KILL_ALL=false
+SIGNAL="TERM"
+RECURSIVE=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -p|--pid) SORT_BY="pid"; shift ;;
+        -u|--user) USER="$2"; shift 2 ;;
+        -m|--memory) SORT_BY="mem"; shift ;;
+        -c|--cpu) SORT_BY="cpu"; shift ;;
+        -f|--filter) FILTER="$2"; shift 2 ;;
+        -k|--kill) KILL_MODE=true; KILL_PID="$2"; shift 2 ;;
+        -K|--kill-all) KILL_ALL=true; shift ;;
+        -s|--signal) SIGNAL="$2"; shift 2 ;;
+        -t|--tree) SHOW_TREE=true; shift ;;
+        -l|--limit) LIMIT="$2"; shift 2 ;;
+        -r|--recursive) RECURSIVE=true; shift ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) FILTER="$1"; shift ;;
+    esac
+done
+
+# Handle kill modes
+if $KILL_MODE; then
+    if [[ -n "$KILL_PID" ]]; then
+        kill -"$SIGNAL" "$KILL_PID" 2>/dev/null && echo "Sent $SIGNAL to PID $KILL_PID" || echo "Failed to kill PID $KILL_PID"
+    else
+        echo "Usage: hunt -k <pid>"
+    fi
+    exit
+fi
+
+if $KILL_ALL; then
+    if [[ -z "$FILTER" ]]; then
+        echo "Error: -K requires -f <filter>"
+        exit 1
+    fi
+    PIDS=$(pgrep -f "$FILTER")
+    if [[ -n "$PIDS" ]]; then
+        echo "Killing all processes matching: $FILTER"
+        echo "PIDs: $PIDS"
+        for PID in $PIDS; do
+            kill -"$SIGNAL" "$PID" 2>/dev/null && echo "Killed PID $PID" || echo "Failed to kill PID $PID"
+        done
+    else
+        echo "No processes found matching: $FILTER"
+    fi
+    exit
+fi
+
+# Build ps command
+PS_CMD="ps aux"
+
+# Process tree view
+if $SHOW_TREE || $RECURSIVE; then
+    if $RECURSIVE; then
+        echo "Full Process Tree"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        pstree -apl 2>/dev/null || ps -eHf
+    else
+        echo "Process Tree"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        pstree -p $(id -u) 2>/dev/null || pstree -p
+    fi
+    exit
+fi
+
+# Filter and display
+echo "Processes"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+printf "%-10s %-8s %-6s %-6s %-10s %-s\n" "PID" "USER" "CPU%" "MEM%" "MEM" "COMMAND"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [[ -n "$USER" ]]; then
+    PS_CMD="$PS_CMD -u $USER"
+fi
+
+if [[ -n "$FILTER" ]]; then
+    # Custom filtered output
+    ps aux | grep -v grep | grep -i "$FILTER" | head -"$LIMIT" | while read -r line; do
+        PID=$(echo "$line" | awk '{print $2}')
+        USER=$(echo "$line" | awk '{print $1}')
+        CPU=$(echo "$line" | awk '{print $3}')
+        MEM=$(echo "$line" | awk '{print $4}')
+        MEM_KB=$(echo "$line" | awk '{print $6}')
+        CMD=$(echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=$9=""; print $0}')
+        
+        # Format memory
+        if [[ $MEM_KB -gt 1048576 ]]; then
+            MEM_FMT="$((MEM_KB / 1048576))G"
+        elif [[ $MEM_KB -gt 1024 ]]; then
+            MEM_FMT="$((MEM_KB / 1024))M"
+        else
+            MEM_FMT="${MEM_KB}K"
+        fi
+        
+        printf "%-10s %-8s %-6s %-6s %-10s %-s\n" "$PID" "$USER" "$CPU" "$MEM" "$MEM_FMT" "$CMD"
+    done
+else
+    # Default top processes
+    if [[ "$SORT_BY" == "mem" ]]; then
+        ps aux --sort=-%mem | grep -v PID | head -"$LIMIT" | while read -r line; do
+            PID=$(echo "$line" | awk '{print $2}')
+            USER=$(echo "$line" | awk '{print $1}')
+            CPU=$(echo "$line" | awk '{print $3}')
+            MEM=$(echo "$line" | awk '{print $4}')
+            MEM_KB=$(echo "$line" | awk '{print $6}')
+            CMD=$(echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=$9=""; print $0}')
+            
+            if [[ $MEM_KB -gt 1048576 ]]; then
+                MEM_FMT="$((MEM_KB / 1048576))G"
+            elif [[ $MEM_KB -gt 1024 ]]; then
+                MEM_FMT="$((MEM_KB / 1024))M"
+            else
+                MEM_FMT="${MEM_KB}K"
+            fi
+            
+            printf "%-10s %-8s %-6s %-6s %-10s %-s\n" "$PID" "$USER" "$CPU" "$MEM" "$MEM_FMT" "$CMD"
+        done
+    else
+        ps aux --sort=-%cpu | grep -v PID | head -"$LIMIT" | while read -r line; do
+            PID=$(echo "$line" | awk '{print $2}')
+            USER=$(echo "$line" | awk '{print $1}')
+            CPU=$(echo "$line" | awk '{print $3}')
+            MEM=$(echo "$line" | awk '{print $4}')
+            MEM_KB=$(echo "$line" | awk '{print $6}')
+            CMD=$(echo "$line" | awk '{$1=$2=$3=$4=$5=$6=$7=$8=$9=""; print $0}')
+            
+            if [[ $MEM_KB -gt 1048576 ]]; then
+                MEM_FMT="$((MEM_KB / 1048576))G"
+            elif [[ $MEM_KB -gt 1024 ]]; then
+                MEM_FMT="$((MEM_KB / 1024))M"
+            else
+                MEM_FMT="${MEM_KB}K"
+            fi
+            
+            printf "%-10s %-8s %-6s %-6s %-10s %-s\n" "$PID" "$USER" "$CPU" "$MEM" "$MEM_FMT" "$CMD"
+        done
+    fi
+fi
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Showing top $LIMIT processes (sorted by $SORT_BY)"

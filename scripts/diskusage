@@ -1,0 +1,235 @@
+#!/bin/bash
+# diskusage — Disk usage visualizer in a tree with percentages and ASCII bars
+
+usage() {
+    cat <<EOF
+diskusage — Disk usage visualizer
+---------------------------------
+Usage: diskusage [options] [directory]
+
+Options:
+    -d, --depth N     Maximum depth to display (default: 3)
+    -s, --sort        Sort by size (largest first)
+    -h, --human       Human readable sizes (KB, MB, GB)
+    -p, --percentage  Show percentage bars
+    -l, --limit N     Show only top N entries per directory
+    -a, --all         Show all files (not just directories)
+    -t, --total       Show total size at the end
+    --exclude PATTERN Exclude directories matching pattern
+    -h, --help        Show this help
+
+Default: Shows current directory with depth 3
+
+Examples:
+    diskusage              # Current directory, depth 3
+    diskusage /home        # Analyze /home
+    diskusage -d 2         # Depth 2 only
+    diskusage -s -h        # Sort by size, human readable
+    diskusage -p           # Show percentage bars
+
+EOF
+    exit
+}
+
+# Defaults
+TARGET_DIR="${1:-.}"
+DEPTH=3
+SORT=false
+HUMAN=false
+PERCENTAGE=false
+LIMIT=0
+SHOW_ALL=false
+TOTAL=false
+EXCLUDE=""
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -d|--depth) DEPTH="$2"; shift 2 ;;
+        -s|--sort) SORT=true; shift ;;
+        -h|--human) HUMAN=true; shift ;;
+        -p|--percentage) PERCENTAGE=true; shift ;;
+        -l|--limit) LIMIT="$2"; shift 2 ;;
+        -a|--all) SHOW_ALL=true; shift ;;
+        -t|--total) TOTAL=true; shift ;;
+        --exclude) EXCLUDE="$2"; shift 2 ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) TARGET_DIR="$1"; shift ;;
+    esac
+done
+
+if [[ ! -d "$TARGET_DIR" ]]; then
+    echo "Error: '$TARGET_DIR' is not a valid directory."
+    exit 1
+fi
+
+# Get total size of directory
+get_size() {
+    du -sb "$1" 2>/dev/null | awk '{print $1}'
+}
+
+# Convert bytes to human readable
+human_size() {
+    local SIZE=$1
+    if [[ $SIZE -lt 1024 ]]; then
+        echo "${SIZE}B"
+    elif [[ $SIZE -lt 1048576 ]]; then
+        echo "$((SIZE / 1024))KB"
+    elif [[ $SIZE -lt 1073741824 ]]; then
+        echo "$((SIZE / 1048576))MB"
+    else
+        echo "$((SIZE / 1073741824))GB"
+    fi
+}
+
+# Print ASCII bar
+print_bar() {
+    local PERCENT=$1
+    local WIDTH=20
+    local FILLED=$((PERCENT * WIDTH / 100))
+    local EMPTY=$((WIDTH - FILLED))
+    printf "["
+    for ((i=0; i<FILLED; i++)); do printf "█"; done
+    for ((i=0; i<EMPTY; i++)); do printf "░"; done
+    printf "] %3d%%" "$PERCENT"
+}
+
+# Get directory size with exclusions
+dir_size() {
+    if [[ -n "$EXCLUDE" ]]; then
+        du -sb --exclude="$EXCLUDE" "$1" 2>/dev/null | awk '{print $1}'
+    else
+        du -sb "$1" 2>/dev/null | awk '{print $1}'
+    fi
+}
+
+TOTAL_SIZE=$(dir_size "$TARGET_DIR")
+
+if [[ $TOTAL_SIZE -eq 0 ]]; then
+    TOTAL_SIZE=1
+fi
+
+# Print tree
+print_tree() {
+    local PREFIX="$1"
+    local DIR_PATH="$2"
+    local CURRENT_DEPTH="$3"
+    
+    if [[ $CURRENT_DEPTH -gt $DEPTH ]]; then
+        return
+    fi
+    
+    local ENTRIES=()
+    
+    if $SHOW_ALL; then
+        ENTRIES=("$DIR_PATH"/* "$DIR_PATH"/.*)
+    else
+        ENTRIES=("$DIR_PATH"/*)
+    fi
+    
+    local COUNT=0
+    local DIR_ENTRIES=()
+    local FILE_ENTRIES=()
+    
+    for ENTRY in "${ENTRIES[@]}"; do
+        [[ ! -e "$ENTRY" ]] && continue
+        [[ "$ENTRY" == "$DIR_PATH/." ]] && continue
+        [[ "$ENTRY" == "$DIR_PATH/.." ]] && continue
+        
+        if [[ -d "$ENTRY" ]]; then
+            DIR_ENTRIES+=("$ENTRY")
+        elif $SHOW_ALL && [[ -f "$ENTRY" ]]; then
+            FILE_ENTRIES+=("$ENTRY")
+        fi
+    done
+    
+    # Sort directories by size if requested
+    if $SORT; then
+        local SORTED_DIRS=()
+        for D in "${DIR_ENTRIES[@]}"; do
+            SORTED_DIRS+=("$D")
+        done
+        DIR_ENTRIES=("${SORTED_DIRS[@]}")
+    fi
+    
+    # Process directories
+    for DIR in "${DIR_ENTRIES[@]}"; do
+        [[ ! -e "$DIR" ]] && continue
+        
+        local SIZE=$(dir_size "$DIR")
+        local NAME=$(basename "$DIR")
+        local PERCENT=$((SIZE * 100 / TOTAL_SIZE))
+        
+        if $HUMAN; then
+            SIZE_DISP=$(human_size $SIZE)
+        else
+            SIZE_DISP="$SIZE"
+        fi
+        
+        if $PERCENTAGE; then
+            printf "%s%s\n" "$PREFIX├── "
+            printf "%s%s %s " "$PREFIX├── " "$NAME"
+            printf "%s\n" "$SIZE_DISP"
+            printf "%s  " "$PREFIX  "
+            print_bar $PERCENT
+            echo ""
+        else
+            printf "%s├── %s %s\n" "$PREFIX" "$NAME" "$SIZE_DISP"
+        fi
+        
+        if [[ $CURRENT_DEPTH -lt $DEPTH ]]; then
+            print_tree "│  $PREFIX" "$DIR" $((CURRENT_DEPTH + 1))
+        fi
+        
+        COUNT=$((COUNT + 1))
+        if [[ $LIMIT -gt 0 ]] && [[ $COUNT -ge $LIMIT ]]; then
+            break
+        fi
+    done
+    
+    # Process files
+    for FILE in "${FILE_ENTRIES[@]}"; do
+        [[ ! -e "$FILE" ]] && continue
+        
+        local SIZE=$(stat -c "%s" "$FILE" 2>/dev/null)
+        local NAME=$(basename "$FILE")
+        local PERCENT=$((SIZE * 100 / TOTAL_SIZE))
+        
+        if $HUMAN; then
+            SIZE_DISP=$(human_size $SIZE)
+        else
+            SIZE_DISP="$SIZE"
+        fi
+        
+        if $PERCENTAGE; then
+            printf "%s└── %s %s " "$PREFIX" "$NAME" "$SIZE_DISP"
+            print_bar $PERCENT
+            echo ""
+        else
+            printf "%s└── %s %s\n" "$PREFIX" "$NAME" "$SIZE_DISP"
+        fi
+    done
+}
+
+echo "Disk Usage: $TARGET_DIR"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if $HUMAN; then
+    echo "Total: $(human_size $TOTAL_SIZE)"
+else
+    echo "Total: $TOTAL_SIZE bytes"
+fi
+
+echo ""
+print_tree "" "$TARGET_DIR" 0
+
+if $TOTAL; then
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    if $HUMAN; then
+        echo "Total Size: $(human_size $TOTAL_SIZE)"
+    else
+        echo "Total Size: $TOTAL_SIZE bytes"
+    fi
+fi

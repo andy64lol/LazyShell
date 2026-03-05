@@ -1,0 +1,146 @@
+#!/bin/bash
+# dupefind — Smart duplicate finder, detects by content, safely deletes or moves duplicates
+
+usage() {
+    cat <<EOF
+dupefind — Smart duplicate file finder
+--------------------------------------
+Usage: dupefind [options] [directory]
+
+Options:
+    -d, --delete      Interactively delete duplicates (keeps first)
+    -m, --move DIR    Move duplicates to specified directory
+    -h, --help        Show this help
+    -s, --sha256      Use SHA256 for hashing (slower, more accurate)
+    -q, --quiet       Suppress summary output
+    -n, --dry-run     Show what would be done without making changes
+
+Default: Scans current directory using MD5 hash
+
+Examples:
+    dupefind                  # Find duplicates in current dir
+    dupefind /home/user       # Find duplicates in specific dir
+    dupefind -d               # Find and interactively delete
+    dupefind -m ./duplicates  # Move duplicates to folder
+
+EOF
+    exit
+}
+
+# Defaults
+SEARCH_DIR="${1:-.}"
+HASH_CMD="md5sum"
+DRY_RUN=false
+DELETE_MODE=false
+MOVE_MODE=false
+MOVE_DIR=""
+QUIET=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -d|--delete) DELETE_MODE=true; shift ;;
+        -m|--move)
+            MOVE_MODE=true
+            MOVE_DIR="$2"
+            shift 2
+            ;;
+        -s|--sha256) HASH_CMD="sha256sum"; shift ;;
+        -q|--quiet) QUIET=true; shift ;;
+        -n|--dry-run) DRY_RUN=true; shift ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) SEARCH_DIR="$1"; shift ;;
+    esac
+done
+
+if [[ ! -d "$SEARCH_DIR" ]]; then
+    echo "Error: '$SEARCH_DIR' is not a valid directory."
+    exit 1
+fi
+
+if $MOVE_MODE && [[ -z "$MOVE_DIR" ]]; then
+    echo "Error: --move requires a destination directory."
+    exit 1
+fi
+
+if $MOVE_MODE && [[ ! -d "$MOVE_DIR" ]]; then
+    echo "Creating move directory: $MOVE_DIR"
+    mkdir -p "$MOVE_DIR"
+fi
+
+# Find duplicates
+$QUIET || echo "Scanning for duplicates in: $SEARCH_DIR"
+$QUIET || echo "Using: $HASH_CMD"
+$QUIET || echo ""
+
+declare -A HASHES
+DUPLICATES_FOUND=0
+
+# Read all files and compute hashes
+while IFS= read -r -d '' FILE; do
+    HASH=$($HASH_CMD "$FILE" 2>/dev/null | awk '{print $1}')
+    if [[ -n "$HASH" ]]; then
+        if [[ -z "${HASHES[$HASH]}" ]]; then
+            HASHES[$HASH]="$FILE"
+        else
+            ORIGINAL="${HASHES[$HASH]}"
+            DUPLICATES_FOUND=$((DUPLICATES_FOUND + 1))
+            
+            if ! $QUIET; then
+                echo "=== Duplicate Found ==="
+                echo "Original: $ORIGINAL"
+                echo "Duplicate: $FILE"
+                echo "Hash: $HASH"
+                echo ""
+            fi
+            
+            if $DELETE_MODE; then
+                if $DRY_RUN; then
+                    echo "[DRY RUN] Would delete: $FILE"
+                else
+                    echo "Delete '$FILE'? (y/n/a/q)"
+                    echo "  y = yes, delete this"
+                    echo "  n = skip this one"
+                    echo "  a = delete all remaining"
+                    echo "  q = quit"
+                    read -r -n1 -s ANSWER
+                    echo ""
+                    case $ANSWER in
+                        y|Y) rm -f "$FILE" && echo "Deleted: $FILE" ;;
+                        a|A) rm -f "$FILE" && echo "Deleted: $FILE"; DELETE_MODE=false ;;
+                        q|Q) echo "Aborted."; exit 0 ;;
+                        *) echo "Skipped: $FILE" ;;
+                    esac
+                fi
+            elif $MOVE_MODE; then
+                FILENAME=$(basename "$FILE")
+                DEST="$MOVE_DIR/$FILENAME"
+                COUNTER=1
+                while [[ -e "$DEST" ]]; do
+                    DEST="$MOVE_DIR/${FILENAME%.*}_$COUNTER.${FILENAME##*.}"
+                    COUNTER=$((COUNTER + 1))
+                done
+                if $DRY_RUN; then
+                    echo "[DRY RUN] Would move: $FILE -> $DEST"
+                else
+                    mv "$FILE" "$DEST" && echo "Moved: $FILE -> $DEST"
+                fi
+            fi
+        fi
+    fi
+done < <(find "$SEARCH_DIR" -type f -print0 2>/dev/null)
+
+if ! $QUIET; then
+    echo "=== Summary ==="
+    echo "Duplicate groups found: $DUPLICATES_FOUND"
+    if $DRY_RUN; then
+        echo "Mode: DRY RUN (no changes made)"
+    elif $DELETE_MODE; then
+        echo "Mode: Delete"
+    elif $MOVE_MODE; then
+        echo "Mode: Move to $MOVE_DIR"
+    else
+        echo "Mode: Preview only (use -d to delete, -m to move)"
+    fi
+fi

@@ -1,0 +1,216 @@
+#!/bin/bash
+# diskcheck — Disk monitor and cleanup helper with alerts and suggested commands
+
+usage() {
+    cat <<EOF
+diskcheck — Disk monitor and cleanup helper
+-------------------------------------------
+Usage: diskcheck [options]
+
+Options:
+    -h, --help       Show this help
+    -a, --alert      Alert if disk usage above threshold
+    -t, --threshold  Set alert threshold % (default: 90)
+    -c, --clean      Show cleanup suggestions
+    -d, --details    Show detailed disk usage
+    -m, --monitor    Monitor disk in real-time (Ctrl+C to stop)
+    -f, --fast       Quick check (skip inodes)
+    -i, --inodes     Show inode usage
+    -v, --verbose    Show verbose output
+
+Default: Shows disk usage summary
+
+Examples:
+    diskcheck                # Show disk usage
+    diskcheck -d             # Detailed view
+    diskcheck -c             # Cleanup suggestions
+    diskcheck -a -t 85       # Alert if above 85%
+    diskcheck -m             # Monitor in real-time
+
+Cleanup Commands Suggested:
+    • Remove old logs: sudo find /var/log -type f -mtime +30 -delete
+    • Clear apt cache: sudo apt-get clean
+    • Remove old kernels: sudo apt-get autoremove
+    • Clear thumbnail cache: rm -rf ~/.cache/thumbnails/*
+    • Remove temp files: rm -rf /tmp/*
+
+EOF
+    exit
+}
+
+# Defaults
+ALERT=false
+THRESHOLD=90
+CLEAN_MODE=false
+DETAILS=false
+MONITOR=false
+FAST=false
+INODES=false
+VERBOSE=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -a|--alert) ALERT=true; shift ;;
+        -t|--threshold) THRESHOLD="$2"; shift 2 ;;
+        -c|--clean) CLEAN_MODE=true; shift ;;
+        -d|--details) DETAILS=true; shift ;;
+        -m|--monitor) MONITOR=true; shift ;;
+        -f|--fast) FAST=true; shift ;;
+        -i|--inodes) INODES=true; shift ;;
+        -v|--verbose) VERBOSE=true; shift ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) ;;
+    esac
+done
+
+# Monitor mode
+if $MONITOR; then
+    echo "Monitoring disk usage (Ctrl+C to stop)..."
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    while true; do
+        clear
+        date
+        echo ""
+        df -h | grep -v "tmpfs\|devtmpfs\|loop"
+        echo ""
+        sleep 2
+    done
+    exit
+fi
+
+# Show disk usage
+show_disk_usage() {
+    if $DETAILS; then
+        echo "Detailed Disk Usage"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        df -h | head -1
+        df -h | grep -v "tmpfs\|devtmpfs\|loop"
+        echo ""
+        
+        if ! $FAST; then
+            echo "Inode Usage:"
+            df -i | head -1
+            df -i | grep -v "tmpfs\|devtmpfs\|loop"
+        fi
+        
+        # Per-user usage in /home
+        if [[ -d "/home" ]]; then
+            echo ""
+            echo "Top users by disk usage in /home:"
+            du -sh /home/* 2>/dev/null | sort -hr | head -5
+        fi
+        
+    else
+        echo "Disk Usage"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        df -h | grep -v "tmpfs\|devtmpfs\|loop" | head -10
+    fi
+}
+
+# Check thresholds
+check_alerts() {
+    local USAGE=$(df "$1" | tail -1 | awk '{print $5}' | tr -d '%')
+    
+    if [[ $USAGE -gt $THRESHOLD ]]; then
+        echo "⚠ ALERT: $1 is at ${USAGE}% (threshold: ${THRESHOLD}%)"
+        return 1
+    else
+        if $VERBOSE; then
+            echo "✓ $1 is at ${USAGE}% (OK)"
+        fi
+        return 0
+    fi
+}
+
+# Cleanup suggestions
+show_cleanup() {
+    echo "Cleanup Suggestions"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    # Check common large directories
+    echo "Large directories:"
+    if [[ -d "/var/log" ]]; then
+        LOG_SIZE=$(du -sh /var/log 2>/dev/null | awk '{print $1}')
+        echo "  /var/log: $LOG_SIZE"
+    fi
+    
+    if [[ -d "/tmp" ]]; then
+        TMP_SIZE=$(du -sh /tmp 2>/dev/null | awk '{print $1}')
+        echo "  /tmp: $TMP_SIZE"
+    fi
+    
+    if [[ -d "$HOME/.cache" ]]; then
+        CACHE_SIZE=$(du -sh "$HOME/.cache" 2>/dev/null | awk '{print $1}')
+        echo "  ~/.cache: $CACHE_SIZE"
+    fi
+    
+    if [[ -d "/root" ]]; then
+        ROOT_SIZE=$(du -sh /root 2>/dev/null | awk '{print $1}')
+        echo "  /root: $ROOT_SIZE"
+    fi
+    
+    echo ""
+    echo "Cleanup Commands:"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "1. Clear apt cache:"
+    echo "   sudo apt-get clean"
+    echo ""
+    echo "2. Remove old log files:"
+    echo "   sudo find /var/log -type f -mtime +30 -delete"
+    echo ""
+    echo "3. Clear user cache:"
+    echo "   rm -rf ~/.cache/thumbnails/*"
+    echo "   rm -rf ~/.cache/fontconfig/*"
+    echo ""
+    echo "4. Remove old kernels (Ubuntu/Debian):"
+    echo "   sudo apt-get autoremove"
+    echo ""
+    echo "5. Clear temp files:"
+    echo "   rm -rf /tmp/* 2>/dev/null"
+    echo ""
+    echo "6. Docker cleanup:"
+    echo "   docker system prune -a"
+    echo ""
+    echo "7. NPM cache:"
+    echo "   npm cache clean --force"
+    echo ""
+    echo "8. pip cache:"
+    echo "   pip cache purge"
+    echo ""
+    
+    # Ask to run
+    echo ""
+    read -p "Run quick cleanup (cache + temp)? (y/n): " -n1 -s ANSWER
+    echo ""
+    if [[ "$ANSWER" == "y" || "$ANSWER" == "Y" ]]; then
+        echo "Running cleanup..."
+        rm -rf ~/.cache/* 2>/dev/null
+        rm -rf /tmp/* 2>/dev/null
+        echo "Done."
+    fi
+}
+
+# Main
+if $CLEAN_MODE; then
+    show_cleanup
+    show_disk_usage
+elif $INODES; then
+    echo "Inode Usage"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    df -i | grep -v "tmpfs\|devtmpfs\|loop"
+else
+    show_disk_usage
+    
+    if $ALERT; then
+        echo ""
+        echo "Alerts (threshold: ${THRESHOLD}%)"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        df -h | grep -v "tmpfs\|devtmpfs\|loop" | tail -n +2 | while read -r line; do
+            MOUNT=$(echo "$line" | awk '{print $6}')
+            check_alerts "$MOUNT"
+        done
+    fi
+fi

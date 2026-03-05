@@ -1,0 +1,283 @@
+#!/bin/bash
+# clipper — Clipboard history manager, searchable and pastable from terminal
+
+CLIP_DIR="${CLIPPER_DIR:-$HOME/.clipper}"
+MAX_ITEMS=100
+MAX_LENGTH=500
+
+usage() {
+    cat <<EOF
+clipper — Clipboard history manager
+-----------------------------------
+Usage: clipper [options] [command]
+
+Commands:
+    (none)           Show clipboard history
+    add <text>       Add text to clipboard history
+    clear            Clear all history
+    del <n>          Delete item n from history
+    search <query>   Search history for query
+    paste <n>        Copy item n to clipboard (for pasting)
+    top              Show most recent item
+    count            Show number of items in history
+
+Options:
+    -h, --help       Show this help
+    -l, --limit N    Limit shown items (default: 20)
+    -c, --clear      Clear on new add (only keep latest)
+    -s, --silent     Don't copy to clipboard on paste
+
+Examples:
+    clipper                    # View history
+    clipper add "Hello world" # Add to history
+    clipper search "password" # Search history
+    clipper paste 3           # Paste item #3
+    clipper top               # Paste most recent
+    clipper clear             # Clear all history
+
+Environment:
+    CLIPPER_DIR   Directory for history storage (default: ~/.clipper)
+
+EOF
+    exit
+}
+
+# Ensure clip directory exists
+mkdir -p "$CLIP_DIR"
+
+# Get clipboard command
+get_clipboard() {
+    if command -v xclip &>/dev/null; then
+        echo "xclip -selection clipboard"
+    elif command -v xsel &>/dev/null; then
+        echo "xsel --clipboard"
+    elif command -v wl-paste &>/dev/null; then
+        echo "wl-paste"
+    else
+        echo ""
+    fi
+}
+
+set_clipboard() {
+    local CMD=$(get_clipboard)
+    local TEXT="$1"
+    if [[ -n "$CMD" ]]; then
+        if [[ "$CMD" == "xclip" ]]; then
+            echo -n "$TEXT" | xclip -selection clipboard
+        elif [[ "$CMD" == "xsel" ]]; then
+            echo -n "$TEXT" | xsel --clipboard
+        elif [[ "$CMD" == "wl-paste" ]]; then
+            echo -n "$TEXT" | wl-paste
+        fi
+    fi
+}
+
+get_clipboard_content() {
+    local CMD=$(get_clipboard)
+    if [[ -n "$CMD" ]]; then
+        if [[ "$CMD" == "xclip" ]]; then
+            xclip -selection clipboard -o
+        elif [[ "$CMD" == "xsel" ]]; then
+            xsel --clipboard
+        elif [[ "$CMD" == "wl-paste" ]]; then
+            wl-paste
+        fi
+    else
+        # Fallback: try reading from primary
+        if command -v xclip &>/dev/null; then
+            xclip -selection primary -o
+        fi
+    fi
+}
+
+add_to_history() {
+    local TEXT="$1"
+    local TIMESTAMP=$(date +%s)
+    local HASH=$(echo -n "$TEXT" | md5sum | awk '{print $1}')
+    local FILENAME="$CLIP_DIR/${TIMESTAMP}_${HASH}.clip"
+    
+    # Truncate if too long
+    if [[ ${#TEXT} -gt $MAX_LENGTH ]]; then
+        TEXT="${TEXT:0:$MAX_LENGTH}..."
+    fi
+    
+    echo -n "$TEXT" > "$FILENAME"
+    
+    # Limit history size
+    local COUNT=$(ls -1 "$CLIP_DIR" 2>/dev/null | wc -l)
+    if [[ $COUNT -gt $MAX_ITEMS ]]; then
+        ls -1t "$CLIP_DIR" | tail -$((COUNT - MAX_ITEMS)) | while read -r f; do
+            rm -f "$CLIP_DIR/$f"
+        done
+    fi
+}
+
+show_history() {
+    local LIMIT=$1
+    local ITEMS=($(ls -1t "$CLIP_DIR" 2>/dev/null))
+    local COUNT=0
+    
+    echo "Clipboard History"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    for ITEM in "${ITEMS[@]}"; do
+        [[ $COUNT -ge $LIMIT ]] && break
+        
+        local FILE="$CLIP_DIR/$ITEM"
+        local TIMESTAMP=$(echo "$ITEM" | cut -d'_' -f1)
+        local DATE=$(date -d "@$TIMESTAMP" 2>/dev/null || date -r "$TIMESTAMP" 2>/dev/null || echo "$TIMESTAMP")
+        local CONTENT=$(cat "$FILE")
+        
+        # Truncate display
+        if [[ ${#CONTENT} -gt 80 ]]; then
+            CONTENT="${CONTENT:0:80}..."
+        fi
+        
+        # Escape special characters for display
+        CONTENT=$(echo "$CONTENT" | sed 's/"/\\"/g' | tr '\n' ' ')
+        
+        echo "[$((COUNT + 1))] $DATE"
+        echo "    $CONTENT"
+        echo ""
+        
+        COUNT=$((COUNT + 1))
+    done
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Total items: $(ls -1 "$CLIP_DIR" 2>/dev/null | wc -l)"
+}
+
+search_history() {
+    local QUERY="$1"
+    local ITEMS=($(ls -1t "$CLIP_DIR" 2>/dev/null))
+    local COUNT=0
+    
+    echo "Search results for: '$QUERY'"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    for ITEM in "${ITEMS[@]}"; do
+        local FILE="$CLIP_DIR/$ITEM"
+        if grep -qi "$QUERY" "$FILE" 2>/dev/null; then
+            local TIMESTAMP=$(echo "$ITEM" | cut -d'_' -f1)
+            local DATE=$(date -d "@$TIMESTAMP" 2>/dev/null || date -r "$TIMESTAMP" 2>/dev/null || echo "$TIMESTAMP")
+            local CONTENT=$(cat "$FILE")
+            
+            if [[ ${#CONTENT} -gt 80 ]]; then
+                CONTENT="${CONTENT:0:80}..."
+            fi
+            
+            CONTENT=$(echo "$CONTENT" | sed 's/"/\\"/g' | tr '\n' ' ')
+            
+            echo "[$((COUNT + 1))] $DATE"
+            echo "    $CONTENT"
+            echo ""
+            
+            COUNT=$((COUNT + 1))
+        fi
+    done
+    
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Found: $COUNT matches"
+}
+
+# Defaults
+LIMIT=20
+CLEAR_ON_ADD=false
+SILENT=false
+CMD=""
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -l|--limit) LIMIT="$2"; shift 2 ;;
+        -c|--clear) CLEAR_ON_ADD=true; shift ;;
+        -s|--silent) SILENT=true; shift ;;
+        add|clear|del|search|paste|top|count) CMD="$1"; shift ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) break ;;
+    esac
+done
+
+case "$CMD" in
+    add)
+        TEXT="$*"
+        if [[ -z "$TEXT" ]]; then
+            TEXT=$(get_clipboard_content)
+        fi
+        if [[ -n "$TEXT" ]]; then
+            if $CLEAR_ON_ADD; then
+                rm -f "$CLIP_DIR"/*.clip
+            fi
+            add_to_history "$TEXT"
+            echo "Added to history."
+        else
+            echo "No text to add."
+        fi
+        ;;
+    clear)
+        rm -f "$CLIP_DIR"/*.clip
+        echo "History cleared."
+        ;;
+    del)
+        ITEM_NUM="$1"
+        if [[ -z "$ITEM_NUM" ]]; then
+            echo "Usage: clipper del <n>"
+            exit 1
+        fi
+        ITEMS=($(ls -1t "$CLIP_DIR" 2>/dev/null))
+        if [[ $ITEM_NUM -gt 0 ]] && [[ $ITEM_NUM -le ${#ITEMS[@]} ]]; then
+            rm -f "$CLIP_DIR/${ITEMS[$((ITEM_NUM - 1))]}"
+            echo "Deleted item $ITEM_NUM."
+        else
+            echo "Invalid item number."
+        fi
+        ;;
+    search)
+        shift
+        QUERY="$*"
+        if [[ -n "$QUERY" ]]; then
+            search_history "$QUERY"
+        else
+            echo "Usage: clipper search <query>"
+        fi
+        ;;
+    paste)
+        ITEM_NUM="$1"
+        ITEMS=($(ls -1t "$CLIP_DIR" 2>/dev/null))
+        if [[ -z "$ITEM_NUM" ]]; then
+            ITEM_NUM=1
+        fi
+        if [[ $ITEM_NUM -gt 0 ]] && [[ $ITEM_NUM -le ${#ITEMS[@]} ]]; then
+            CONTENT=$(cat "$CLIP_DIR/${ITEMS[$((ITEM_NUM - 1))]}")
+            if ! $SILENT; then
+                set_clipboard "$CONTENT"
+                echo "Copied to clipboard."
+            else
+                echo "$CONTENT"
+            fi
+        else
+            echo "Invalid item number."
+        fi
+        ;;
+    top)
+        ITEMS=($(ls -1t "$CLIP_DIR" 2>/dev/null))
+        if [[ ${#ITEMS[@]} -gt 0 ]]; then
+            CONTENT=$(cat "$CLIP_DIR/${ITEMS[0]}")
+            if ! $SILENT; then
+                set_clipboard "$CONTENT"
+                echo "Copied to clipboard."
+            else
+                echo "$CONTENT"
+            fi
+        else
+            echo "History is empty."
+        fi
+        ;;
+    count)
+        echo "$(ls -1 "$CLIP_DIR" 2>/dev/null | wc -l) items in history"
+        ;;
+    *)
+        show_history $LIMIT
+        ;;
+esac

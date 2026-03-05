@@ -1,0 +1,121 @@
+#!/bin/bash
+# findex — Fuzzy file search with name, regex, or content search; shows previews
+
+usage() {
+    cat <<EOF
+findex — Fuzzy file search with preview
+---------------------------------------
+Usage: findex [options] [pattern] [directory]
+
+Search Modes:
+    -n, --name       Search by filename (fuzzy match) [default]
+    -r, --regex      Search by filename regex pattern
+    -c, --content    Search file contents (grep-like)
+    -i, --ignore-case Case insensitive search
+
+Options:
+    -l, --limit N    Limit results to N files (default: 20)
+    -p, --preview    Show file preview (first 20 lines)
+    -e, --extension  Filter by extension (e.g., .txt, .py)
+    -h, --help       Show this help
+    -v, --verbose    Show more details
+
+Default: Searches in current directory by name
+
+Examples:
+    findex myfile              # Fuzzy search for 'myfile'
+    findex -n "*.sh"           # Find shell scripts
+    findex -c "function"        # Search contents for 'function'
+    findex -r "^test.*\.py$"   # Regex search
+    findex -e .txt -p          # Find txt files with preview
+
+EOF
+    exit
+}
+
+# Defaults
+SEARCH_DIR="${2:-.}"
+PATTERN="${1:-}"
+MODE="name"
+LIMIT=20
+PREVIEW=false
+EXTENSION=""
+VERBOSE=false
+IGNORE_CASE=""
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -n|--name) MODE="name"; shift ;;
+        -r|--regex) MODE="regex"; shift ;;
+        -c|--content) MODE="content"; shift ;;
+        -i|--ignore-case) IGNORE_CASE="-i"; shift ;;
+        -l|--limit) LIMIT="$2"; shift 2 ;;
+        -p|--preview) PREVIEW=true; shift ;;
+        -e|--extension) EXTENSION="$2"; shift 2 ;;
+        -v|--verbose) VERBOSE=true; shift ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) 
+            if [[ -z "$PATTERN" ]]; then
+                PATTERN="$1"
+            elif [[ -z "$SEARCH_DIR" || "$SEARCH_DIR" == "." ]]; then
+                SEARCH_DIR="$1"
+            fi
+            shift ;;
+    esac
+done
+
+if [[ -z "$PATTERN" ]]; then
+    echo "Error: Search pattern required."
+    usage
+fi
+
+if [[ ! -d "$SEARCH_DIR" ]]; then
+    echo "Error: '$SEARCH_DIR' is not a valid directory."
+    exit 1
+fi
+
+echo "Searching for: '$PATTERN' in $SEARCH_DIR (mode: $MODE)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+case $MODE in
+    name)
+        if [[ -n "$EXTENSION" ]]; then
+            RESULTS=$(find "$SEARCH_DIR" -type f -name "*${PATTERN}*" 2>/dev/null | grep -E "\.${EXTENSION}$|^[^.]*$" | head -"$LIMIT")
+        else
+            RESULTS=$(find "$SEARCH_DIR" -type f -name "*${PATTERN}*" 2>/dev/null | head -"$LIMIT")
+        fi
+        ;;
+    regex)
+        RESULTS=$(find "$SEARCH_DIR" -type f 2>/dev/null | grep -E "$PATTERN" | head -"$LIMIT")
+        ;;
+    content)
+        RESULTS=$(grep -rl $IGNORE_CASE "$PATTERN" "$SEARCH_DIR" 2>/dev/null | head -"$LIMIT")
+        ;;
+esac
+
+COUNT=0
+while IFS= read -r -d '' FILE || [[ -n "$FILE" ]]; do
+    [[ -z "$FILE" ]] && continue
+    COUNT=$((COUNT + 1))
+    
+    if $VERBOSE; then
+        SIZE=$(stat -c "%s" "$FILE" 2>/dev/null)
+        MODIFIED=$(stat -c "%y" "$FILE" 2>/dev/null | cut -d'.' -f1)
+        echo "[$COUNT] $FILE"
+        echo "    Size: $SIZE bytes | Modified: $MODIFIED"
+    else
+        echo "[$COUNT] $FILE"
+    fi
+    
+    if $PREVIEW && [[ -f "$FILE" ]]; then
+        echo "    ─────────────────────────────────────"
+        head -20 "$FILE" | sed 's/^/    /'
+        echo ""
+    fi
+done < <(printf '%s\n' "$RESULTS" | tr '\n' '\0')
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Found: $COUNT results (showing max $LIMIT)"

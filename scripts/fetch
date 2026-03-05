@@ -1,0 +1,243 @@
+#!/bin/bash
+# fetch — Batch URL downloader with retries, resume, and auto organization
+
+usage() {
+    cat <<EOF
+fetch — Batch URL downloader
+---------------------------
+Usage: fetch [options] [URLs...]
+
+Options:
+    -h, --help           Show this help
+    -o, --output DIR     Output directory (default: ./downloads)
+    -f, --file FILE      Read URLs from file (one per line)
+    -r, --retries N      Number of retries on failure (default: 3)
+    -t, --timeout N      Timeout in seconds (default: 30)
+    -c, --continue       Resume partial downloads
+    -a, --archive        Create dated archive folder
+    -d, --download       Start download immediately (no prompt)
+    -q, --quiet          Suppress output
+    -v, --verbose        Show detailed output
+
+Default: Prompts for URLs or uses file input
+
+Examples:
+    fetch url1 url2 url3           # Download multiple files
+    fetch -f urls.txt              # Download from file
+    fetch -o ./myfiles url        # Custom output directory
+    fetch -c url                  # Resume download
+    fetch -a -f urls.txt           # Archive with date folder
+
+URL File Format (--file):
+    # Comments start with #
+    https://example.com/file1.zip
+    https://example.com/file2.pdf
+    # Or with custom names:
+    https://example.com/file1.zip|customname.zip
+
+EOF
+    exit
+}
+
+# Defaults
+OUTPUT_DIR="./downloads"
+URL_FILE=""
+RETRIES=3
+TIMEOUT=30
+CONTINUE=false
+ARCHIVE=false
+DOWNLOAD=false
+QUIET=false
+VERBOSE=false
+URLS=()
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -o|--output) OUTPUT_DIR="$2"; shift 2 ;;
+        -f|--file) URL_FILE="$2"; shift 2 ;;
+        -r|--retries) RETRIES="$2"; shift 2 ;;
+        -t|--timeout) TIMEOUT="$2"; shift 2 ;;
+        -c|--continue) CONTINUE=true; shift ;;
+        -a|--archive) ARCHIVE=true; shift ;;
+        -d|--download) DOWNLOAD=true; shift ;;
+        -q|--quiet) QUIET=true; shift ;;
+        -v|--verbose) VERBOSE=true; shift ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) URLS+=("$1"); shift ;;
+    esac
+done
+
+# Handle archive mode
+if $ARCHIVE; then
+    DATE_DIR=$(date +%Y-%m-%d_%H%M%S)
+    OUTPUT_DIR="$OUTPUT_DIR/$DATE_DIR"
+fi
+
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
+
+# Read URLs from file
+if [[ -n "$URL_FILE" ]]; then
+    if [[ ! -f "$URL_FILE" ]]; then
+        echo "Error: File not found: $URL_FILE"
+        exit 1
+    fi
+    
+    # Read non-comment, non-empty lines
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip comments and empty lines
+        [[ "$line" =~ ^# ]] && continue
+        [[ -z "$line" ]] && continue
+        URLS+=("$line")
+    done < "$URL_FILE"
+fi
+
+# Prompt for URLs if none provided
+if [[ ${#URLS[@]} -eq 0 ]]; then
+    echo "Enter URLs (one per line), empty line to finish:"
+    echo "(Or use -f to specify a file)"
+    echo ""
+    
+    while true; do
+        read -r line
+        [[ -z "$line" ]] && break
+        URLS+=("$line")
+    done
+fi
+
+if [[ ${#URLS[@]} -eq 0 ]]; then
+    echo "Error: No URLs provided."
+    exit 1
+fi
+
+# Download function
+download_file() {
+    local URL="$1"
+    local RETRY_COUNT=0
+    local SUCCESS=false
+    
+    # Extract filename from URL or custom name
+    local FILENAME=""
+    if [[ "$URL" == *"|"* ]]; then
+        FILENAME=$(echo "$URL" | cut -d'|' -f2)
+        URL=$(echo "$URL" | cut -d'|' -f1)
+    else
+        FILENAME=$(basename "$URL" | cut -d'?' -f1)
+    fi
+    
+    # Handle empty filename
+    if [[ -z "$FILENAME" ]]; then
+        FILENAME="download_$(date +%s)"
+    fi
+    
+    local OUTPUT_PATH="$OUTPUT_DIR/$FILENAME"
+    
+    # Build wget/curl command
+    local CMD=""
+    if command -v wget &>/dev/null; then
+        CMD="wget"
+        if $CONTINUE; then
+            CMD="$CMD -c"
+        fi
+        if $QUIET; then
+            CMD="$CMD -q"
+        fi
+        CMD="$CMD -O "$OUTPUT_PATH" --timeout=$TIMEOUT --tries=$RETRIES"
+    else
+        CMD="curl"
+        if $CONTINUE; then
+            CMD="$CMD -C -"
+        fi
+        if $QUIET; then
+            CMD="$CMD -s"
+        fi
+        CMD="$CMD -o "$OUTPUT_PATH" --connect-timeout $TIMEOUT --retry $RETRIES"
+    fi
+    
+    $VERBOSE && echo "Downloading: $URL -> $OUTPUT_PATH"
+    
+    while [[ $RETRY_COUNT -lt $RETRIES ]]; do
+        if $CMD "$URL" 2>&1; then
+            SUCCESS=true
+            break
+        else
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [[ $RETRY_COUNT -lt $RETRIES ]]; then
+                $VERBOSE && echo "Retry $RETRY_COUNT/$RETRIES for $URL..."
+                sleep 2
+            fi
+        fi
+    done
+    
+    if $SUCCESS; then
+        if [[ -f "$OUTPUT_PATH" ]] && [[ -s "$OUTPUT_PATH" ]]; then
+            echo "✓ Downloaded: $FILENAME"
+            return 0
+        else
+            echo "✗ Failed: $FILENAME (empty or invalid)"
+            rm -f "$OUTPUT_PATH"
+            return 1
+        fi
+    else
+        echo "✗ Failed after $RETRIES retries: $FILENAME"
+        rm -f "$OUTPUT_PATH"
+        return 1
+    fi
+}
+
+# Show summary before downloading
+if ! $DOWNLOAD; then
+    echo "Fetch - Batch URL Downloader"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Output directory: $OUTPUT_DIR"
+    echo "Retries: $RETRIES | Timeout: ${TIMEOUT}s"
+    echo "URLs to download: ${#URLS[@]}"
+    echo ""
+    
+    echo "Files:"
+    for URL in "${URLS[@]}"; do
+        if [[ "$URL" == *"|"* ]]; then
+            echo "  → $(echo "$URL" | cut -d'|' -f2)"
+        else
+            echo "  → $(basename "$URL" | cut -d'?' -f1)"
+        fi
+    done
+    
+    echo ""
+    read -p "Start download? (y/n): " -n1 -s ANSWER
+    echo ""
+    
+    if [[ "$ANSWER" != "y" && "$ANSWER" != "Y" ]]; then
+        echo "Cancelled."
+        exit 0
+    fi
+fi
+
+echo "Starting downloads..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+SUCCESS_COUNT=0
+FAIL_COUNT=0
+
+for URL in "${URLS[@]}"; do
+    if download_file "$URL"; then
+        SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+    else
+        FAIL_COUNT=$((FAIL_COUNT + 1))
+    fi
+done
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Download complete!"
+echo "Success: $SUCCESS_COUNT | Failed: $FAIL_COUNT"
+echo "Output directory: $OUTPUT_DIR"
+
+# List downloaded files
+if [[ $SUCCESS_COUNT -gt 0 ]]; then
+    echo ""
+    echo "Downloaded files:"
+    ls -lh "$OUTPUT_DIR"
+fi

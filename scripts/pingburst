@@ -1,0 +1,211 @@
+#!/bin/bash
+# pingburst — Multi-host ping tool, logs latency, alerts on downtime
+
+LOG_DIR="${PINGBURST_LOG_DIR:-$HOME/.pingburst}"
+MAX_LOG_LINES=1000
+
+usage() {
+    cat <<EOF
+pingburst — Multi-host ping tool
+--------------------------------
+Usage: pingburst [options] [hosts...]
+
+Options:
+    -h, --help       Show this help
+    -c, --count N    Number of pings per host (default: 4)
+    -i, --interval   Interval between pings in seconds (default: 1)
+    -t, --timeout    Timeout in seconds (default: 5)
+    -l, --log        Enable logging to file
+    -L, --log-file   Specify log file (default: pingburst.log)
+    -a, --alert      Enable downtime alerts
+    -m, --mail       Email alert to specified address
+    -r, --report     Show report summary
+    -v, --verbose    Verbose output
+
+Default: Pings localhost and google.com 4 times each
+
+Examples:
+    pingburst                    # Default hosts
+    pingburst 192.168.1.1       # Ping single host
+    pingburst google.com 8.8.8.8 # Multiple hosts
+    pingburst -l -a server.com   # Log and alert
+    pingburst -r                # Show log report
+
+Environment:
+    PINGBURST_LOG_DIR   Log directory (default: ~/.pingburst)
+
+EOF
+    exit
+}
+
+# Defaults
+COUNT=4
+INTERVAL=1
+TIMEOUT=5
+LOGGING=false
+LOG_FILE="pingburst.log"
+ALERT=false
+MAIL=""
+REPORT=false
+VERBOSE=false
+HOSTS=()
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -c|--count) COUNT="$2"; shift 2 ;;
+        -i|--interval) INTERVAL="$2"; shift 2 ;;
+        -t|--timeout) TIMEOUT="$2"; shift 2 ;;
+        -l|--log) LOGGING=true; shift ;;
+        -L|--log-file) LOG_FILE="$2"; shift 2 ;;
+        -a|--alert) ALERT=true; shift ;;
+        -m|--mail) MAIL="$2"; shift 2 ;;
+        -r|--report) REPORT=true; shift ;;
+        -v|--verbose) VERBOSE=true; shift ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) HOSTS+=("$1"); shift ;;
+    esac
+done
+
+# Default hosts if none specified
+if [[ ${#HOSTS[@]} -eq 0 ]]; then
+    HOSTS=("localhost" "google.com")
+fi
+
+# Ensure log directory exists
+mkdir -p "$LOG_DIR"
+
+# Log function
+log_msg() {
+    if $LOGGING; then
+        local FULL_PATH="$LOG_DIR/$LOG_FILE"
+        echo "$1" >> "$FULL_PATH"
+        
+        # Rotate log if too large
+        local LINES=$(wc -l < "$FULL_PATH" 2>/dev/null || echo 0)
+        if [[ $LINES -gt $MAX_LOG_LINES ]]; then
+            tail -n 500 "$FULL_PATH" > "$FULL_PATH.tmp"
+            mv "$FULL_PATH.tmp" "$FULL_PATH"
+        fi
+    fi
+}
+
+# Send alert
+send_alert() {
+    local HOST="$1"
+    local STATUS="$2"
+    local MSG="[PINGBURST] $HOST is $STATUS at $(date)"
+    
+    if $VERBOSE; then
+        echo "ALERT: $MSG"
+    fi
+    
+    log_msg "$MSG"
+    
+    if [[ -n "$MAIL" ]]; then
+        echo "$MSG" | mail -s "Ping Alert: $HOST" "$MAIL" 2>/dev/null
+    fi
+}
+
+# Ping single host
+ping_host() {
+    local HOST="$1"
+    local RESULT=$(ping -c "$COUNT" -i "$INTERVAL" -W "$TIMEOUT" "$HOST" 2>&1)
+    local EXIT_CODE=$?
+    
+    if [[ $EXIT_CODE -eq 0 ]]; then
+        # Extract stats
+        local PACKETS=$(echo "$RESULT" | grep "packets" | awk '{print $1}')
+        local RTT_AVG=$(echo "$RESULT" | grep "rtt" | awk -F'/' '{print $5}')
+        
+        if [[ -z "$RTT_AVG" ]]; then
+            RTT_AVG="N/A"
+        fi
+        
+        echo "✓ $HOST - Avg RTT: ${RTT_AVG}ms | Loss: $(echo "$RESULT" | grep "received" | awk '{print $6}')"
+        log_msg "[$(date '+%Y-%m-%d %H:%M:%S')] OK: $HOST - RTT: ${RTT_AVG}ms"
+        
+        return 0
+    else
+        echo "✗ $HOST - DOWN or TIMEOUT"
+        log_msg "[$(date '+%Y-%m-%d %H:%M:%S')] FAIL: $HOST - No response"
+        
+        if $ALERT; then
+            send_alert "$HOST" "DOWN"
+        fi
+        
+        return 1
+    fi
+}
+
+# Show report
+show_report() {
+    local LOG_FILE_PATH="$LOG_DIR/$LOG_FILE"
+    
+    if [[ ! -f "$LOG_FILE_PATH" ]]; then
+        echo "No log file found."
+        return
+    fi
+    
+    echo "Ping Report"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Log file: $LOG_FILE_PATH"
+    echo ""
+    
+    local TOTAL=$(grep -c "OK:" "$LOG_FILE_PATH" 2>/dev/null || echo 0)
+    local FAILED=$(grep -c "FAIL:" "$LOG_FILE_PATH" 2>/dev/null || echo 0)
+    local TOTAL_PINGS=$((TOTAL + FAILED))
+    
+    echo "Total successful: $TOTAL"
+    echo "Total failed: $FAILED"
+    
+    if [[ $TOTAL_PINGS -gt 0 ]]; then
+        local SUCCESS_RATE=$((TOTAL * 100 / TOTAL_PINGS))
+        echo "Success rate: ${SUCCESS_RATE}%"
+    fi
+    
+    echo ""
+    echo "Recent failures:"
+    grep "FAIL:" "$LOG_FILE_PATH" | tail -5
+    
+    echo ""
+    echo "Recent successful:"
+    grep "OK:" "$LOG_FILE_PATH" | tail -5
+}
+
+# Main
+if $REPORT; then
+    show_report
+    exit
+fi
+
+echo "Pingburst - Multi-host Ping Tool"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Hosts: ${HOSTS[*]}"
+echo "Pings per host: $COUNT"
+echo "Interval: ${INTERVAL}s | Timeout: ${TIMEOUT}s"
+echo "Logging: $LOGGING | Alerts: $ALERT"
+echo ""
+
+START_TIME=$(date)
+log_msg "=== Ping session started: $START_TIME ==="
+
+TOTAL_OK=0
+TOTAL_FAIL=0
+
+for HOST in "${HOSTS[@]}"; do
+    if ping_host "$HOST"; then
+        TOTAL_OK=$((TOTAL_OK + 1))
+    else
+        TOTAL_FAIL=$((TOTAL_FAIL + 1))
+    fi
+    echo ""
+done
+
+END_TIME=$(date)
+log_msg "=== Ping session ended: $END_TIME ==="
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Results: $TOTAL_OK OK, $TOTAL_FAIL FAILED"
+echo "Completed at: $END_TIME"

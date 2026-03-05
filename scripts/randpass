@@ -1,0 +1,262 @@
+#!/bin/bash
+# randpass — Random password generator, configurable and clipboard-ready
+
+usage() {
+    cat <<EOF
+randpass — Random password generator
+------------------------------------
+Usage: randpass [options]
+
+Options:
+    -h, --help           Show this help
+    -l, --length N       Password length (default: 16)
+    -n, --numbers        Include numbers (default: yes)
+    -s, --symbols        Include special symbols
+    -u, --uppercase      Include uppercase letters (default: yes)
+    -c, --lowercase      Include lowercase letters (default: yes)
+    -e, --exclude CHARS  Characters to exclude
+    -m, --memorable      Generate memorable password (words)
+    -p, --pin            Generate numeric PIN (4-8 digits)
+    -w, --words N        Number of words for memorable password (default: 4)
+    -d, --delimiter      Delimiter for memorable mode (default: -)
+    -C, --clipboard      Copy to clipboard
+    -v, --verbose        Show password strength
+
+Default: 16 characters with uppercase, lowercase, and numbers
+
+Examples:
+    randpass                    # 16 char password
+    randpass -l 24              # 24 char password
+    randpass -s                 # Include symbols
+    randpass -m                 # Memorable word password
+    randpass -m -w 6            # 6-word password
+    randpass -p                 # 4-digit PIN
+    randpass -C                 # Copy to clipboard
+    randpass -l 32 -s -C        # Strong, copied to clipboard
+
+Clipboard:
+    Uses xclip, xsel, or wl-paste if available.
+
+EOF
+    exit
+}
+
+# Defaults
+LENGTH=16
+INCLUDE_NUMBERS=true
+INCLUDE_SYMBOLS=false
+INCLUDE_UPPERCASE=true
+INCLUDE_LOWERCASE=true
+EXCLUDE=""
+MEMORABLE=false
+PIN=false
+WORDS=4
+DELIMITER="-"
+CLIPBOARD=false
+VERBOSE=false
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help) usage ;;
+        -l|--length) LENGTH="$2"; shift 2 ;;
+        -n|--numbers) INCLUDE_NUMBERS=true; shift ;;
+        -s|--symbols) INCLUDE_SYMBOLS=true; shift ;;
+        -u|--uppercase) INCLUDE_UPPERCASE=true; shift ;;
+        -c|--lowercase) INCLUDE_LOWERCASE=true; shift ;;
+        -e|--exclude) EXCLUDE="$2"; shift 2 ;;
+        -m|--memorable) MEMORABLE=true; shift ;;
+        -p|--pin) PIN=true; shift ;;
+        -w|--words) WORDS="$2"; shift 2 ;;
+        -d|--delimiter) DELIMITER="$2"; shift 2 ;;
+        -C|--clipboard) CLIPBOARD=true; shift ;;
+        -v|--verbose) VERBOSE=true; shift ;;
+        -*) echo "Unknown option: $1"; usage ;;
+        *) ;;
+    esac
+done
+
+# Copy to clipboard function
+copy_to_clipboard() {
+    local TEXT="$1"
+    
+    if command -v xclip &>/dev/null; then
+        echo -n "$TEXT" | xclip -selection clipboard
+    elif command -v xsel &>/dev/null; then
+        echo -n "$TEXT" | xsel --clipboard
+    elif command -v wl-paste &>/dev/null; then
+        echo -n "$TEXT" | wl-paste
+    else
+        echo "Warning: No clipboard tool found (xclip, xsel, wl-paste)"
+        return 1
+    fi
+    
+    echo "Copied to clipboard!"
+}
+
+# Calculate password strength
+check_strength() {
+    local PASSWORD="$1"
+    local SCORE=0
+    
+    # Length score
+    if [[ ${#PASSWORD} -ge 8 ]]; then
+        SCORE=$((SCORE + 1))
+    fi
+    if [[ ${#PASSWORD} -ge 12 ]]; then
+        SCORE=$((SCORE + 1))
+    fi
+    if [[ ${#PASSWORD} -ge 16 ]]; then
+        SCORE=$((SCORE + 1))
+    fi
+    if [[ ${#PASSWORD} -ge 24 ]]; then
+        SCORE=$((SCORE + 1))
+    fi
+    
+    # Character variety
+    if echo "$PASSWORD" | grep -q '[0-9]'; then
+        SCORE=$((SCORE + 1))
+    fi
+    if echo "$PASSWORD" | grep -q '[a-z]'; then
+        SCORE=$((SCORE + 1))
+    fi
+    if echo "$PASSWORD" | grep -q '[A-Z]'; then
+        SCORE=$((SCORE + 1))
+    fi
+    if echo "$PASSWORD" | grep -q '[!@#$%^&*()_+-=\[\]{}|;:,.<>?]'; then
+        SCORE=$((SCORE + 1))
+    fi
+    
+    # Rating
+    if [[ $SCORE -le 2 ]]; then
+        echo "Weak"
+    elif [[ $SCORE -le 4 ]]; then
+        echo "Fair"
+    elif [[ $SCORE -le 6 ]]; then
+        echo "Good"
+    else
+        echo "Strong"
+    fi
+}
+
+# Generate random password
+generate_password() {
+    local CHARS=""
+    
+    # Build character set
+    if $INCLUDE_LOWERCASE; then
+        CHARS="${CHARS}abcdefghijklmnopqrstuvwxyz"
+    fi
+    if $INCLUDE_UPPERCASE; then
+        CHARS="${CHARS}ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    fi
+    if $INCLUDE_NUMBERS; then
+        CHARS="${CHARS}0123456789"
+    fi
+    if $INCLUDE_SYMBOLS; then
+        CHARS="${CHARS}!@#$%^&*()_+-=[]{}|;:,.<>?"
+    fi
+    
+    # Remove excluded characters
+    if [[ -n "$EXCLUDE" ]]; then
+        for CHAR in $(echo "$EXCLUDE" | fold -w1); do
+            CHARS="${CHARS//$CHAR/}"
+        done
+    fi
+    
+    if [[ -z "$CHARS" ]]; then
+        echo "Error: No characters available for password."
+        exit 1
+    fi
+    
+    # Generate password
+    local PASSWORD=""
+    local CHARS_LEN=${#CHARS}
+    
+    for ((i=0; i<LENGTH; i++)); do
+        local RANDOM_INDEX=$((RANDOM % CHARS_LEN))
+        local CHAR="${CHARS:$RANDOM_INDEX:1}"
+        PASSWORD="${PASSWORD}${CHAR}"
+    done
+    
+    echo "$PASSWORD"
+}
+
+# Generate memorable password
+generate_memorable() {
+    # Common words list (shortened for script)
+    local WORDS_LIST=(
+        "apple" "brave" "cloud" "delta" "eagle" "falcon" "garden" "harbor"
+        "iron" "jungle" "kite" "lemon" "mountain" "night" "ocean" "piano"
+        "quiet" "river" "sun" "tiger" "ultra" "vivid" "water" "xenon"
+        "yellow" "zebra" "amber" "bloom" "crisp" "dawn" "ember" "frost"
+        "globe" "heart" "ivory" "jewel" "karma" "light" "magic" "noble"
+        "orbit" "pearl" "quest" "ruby" "spark" "token" "unity" "valor"
+        "whisper" "pixel" "youth" "zenith" "anchor" "bridge" "castle"
+        "dragon" "echo" "flame" "glory" "horizon" "island" "joy" "king"
+        "lunar" "melody" "nexus" "omega" "phoenix" "quest" "rain"
+    )
+    
+    local PASSWORD=""
+    local WORDS_COUNT=${#WORDS_LIST[@]}
+    
+    for ((i=0; i<WORDS; i++)); do
+        local RANDOM_INDEX=$((RANDOM % WORDS_COUNT))
+        local WORD="${WORDS_LIST[$RANDOM_INDEX]}"
+        
+        # Randomly capitalize first letter
+        if [[ $((RANDOM % 2)) -eq 1 ]]; then
+            WORD="${WORD^}"
+        fi
+        
+        # Add random number or symbol occasionally
+        if [[ $i -lt $((WORDS - 1)) ]]; then
+            PASSWORD="${PASSWORD}${WORD}${DELIMITER}"
+        else
+            PASSWORD="${PASSWORD}${WORD}"
+        fi
+    done
+    
+    # Optionally add a number at the end
+    if [[ $((RANDOM % 2)) -eq 1 ]]; then
+        PASSWORD="${PASSWORD}$((RANDOM % 100))"
+    fi
+    
+    echo "$PASSWORD"
+}
+
+# Generate PIN
+generate_pin() {
+    local PIN_LENGTH="${1:-4}"
+    local PIN=""
+    
+    for ((i=0; i<PIN_LENGTH; i++)); do
+        PIN="${PIN}$((RANDOM % 10))"
+    done
+    
+    echo "$PIN"
+}
+
+# Main
+if $PIN; then
+    PASSWORD=$(generate_pin "${LENGTH:-4}")
+    echo "PIN: $PASSWORD"
+elif $MEMORABLE; then
+    PASSWORD=$(generate_memorable)
+    echo "Password: $PASSWORD"
+else
+    PASSWORD=$(generate_password)
+    echo "Password: $PASSWORD"
+fi
+
+# Show strength if verbose
+if $VERBOSE; then
+    STRENGTH=$(check_strength "$PASSWORD")
+    echo "Strength: $STRENGTH"
+    echo "Length: ${#PASSWORD}"
+fi
+
+# Copy to clipboard if requested
+if $CLIPBOARD; then
+    copy_to_clipboard "$PASSWORD"
+fi

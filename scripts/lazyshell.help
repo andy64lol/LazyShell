@@ -95,6 +95,72 @@ telldate    - Display current date:
 
 upt         - Preview apt upgrade, then prompt to run.
 
+dupefind    - Smart duplicate finder:
+                dupefind [directory]                 # Find duplicates
+                dupefind -d                          # Interactive delete
+                dupefind -m ./dups                   # Move duplicates
+                dupefind -s                          # Use SHA256 hash
+
+findex      - Fuzzy file search:
+                findex <pattern>                     # Fuzzy name search
+                findex -c "text"                     # Content search
+                findex -r "^regex$"                   # Regex search
+                findex -p                            # Show preview
+
+diskusage   - Disk usage visualizer:
+                diskusage [directory]                # Tree with sizes
+                diskusage -s -h                       # Sort, human readable
+                diskusage -p                          # Show percentages
+                diskusage -d 2                       # Depth limit
+
+clipper     - Clipboard history manager:
+                clipper                              # Show history
+                clipper add "text"                   # Add to history
+                clipper search "query"               # Search history
+                clipper paste 3                      # Paste item #3
+                clipper top                          # Paste most recent
+
+hunt        - Process explorer:
+                hunt                                 # Show top processes
+                hunt -m                              # Sort by memory
+                hunt -f chrome                       # Filter processes
+                hunt -t                              # Tree view
+                hunt -K -f chrome                    # Kill all chrome
+
+diskcheck   - Disk monitor & cleanup:
+                diskcheck                            # Show disk usage
+                diskcheck -d                         # Detailed view
+                diskcheck -c                         # Cleanup suggestions
+                diskcheck -a -t 85                   # Alert if >85%
+
+pingburst   - Multi-host ping tool:
+                pingburst                            # Ping defaults
+                pingburst host1 host2                # Multiple hosts
+                pingburst -l -a server.com           # Log with alerts
+                pingburst -r                          # Show report
+
+fetch       - Batch URL downloader:
+                fetch url1 url2                      # Download URLs
+                fetch -f urls.txt                    # From file
+                fetch -o ./dir url                   # Custom output
+                fetch -c url                         # Resume download
+
+timer       - Multi-timer CLI:
+                timer                                # Show timers
+                timer start 25                       # Start 25 min timer
+                timer start 5 break                  # Labeled timer
+                timer stop 1                         # Stop timer #1
+                timer -n start 10 test              # With notification
+                timer log                            # Show history
+
+randpass    - Random password generator:
+                randpass                             # 16 char password
+                randpass -l 24                       # Custom length
+                randpass -s                          # Include symbols
+                randpass -m                          # Memorable words
+                randpass -p                          # PIN code
+                randpass -C                          # Copy to clipboard
+
 Examples
 --------
 Create a shortcut named 'hello':
