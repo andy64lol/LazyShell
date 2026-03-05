@@ -73,11 +73,19 @@ server      - Python HTTP server with port management:
                 server --force [port]     # kill then start server
                 server --open [port]      # start server and open browser
 
+show        - Directory tree viewer:
+                show [directory]          # display recursive tree with file metadata (path, size, last modified, last accessed)
+
 st          - Shortcut manager:
                 st                        # create shortcut
                 st --del <name>           # delete shortcut
                 st --help                 # show help
                 -h                        # short help
+
+telltime    - Display current time:
+                telltime                  # show time in HH:MM:SS
+                telltime --milisecs       # show time with milliseconds
+                telltime --live           # live updating clock (Ctrl+C to exit)
 
 upt         - Preview apt upgrade, then prompt to run.
 

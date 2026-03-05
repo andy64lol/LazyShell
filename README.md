@@ -83,11 +83,21 @@ sudo chmod +x /usr/local/bin/<script>
   - `server --open [port]` — start the server and automatically open in browser.
   - Shows both local (`http://localhost:<port>`) and network (`http://<ip>:<port>`) URLs.
 
+- `show` — Directory tree viewer. Usage:
+  - `show [directory]` — displays a recursive tree listing of files in the specified directory (default: current directory).
+  - Shows for each file: path, size (in bytes), last modified date, and last accessed date.
+  - Useful for visualizing directory structure with detailed file metadata.
+
 - `st` — Shortcut manager:
   - `st` launches interactive creation: prompts for a command and a shortcut name, validates the name, writes a small script to `~/.shortcuts/<name>`, `chmod +x` it, then symlinks it into `/usr/local/bin` (requires sudo for the link).
   - `st --del <name>` deletes the shortcut file and the `/usr/local/bin` link. Note: the script recognizes `--del` for deletion.
   - `st --help` shows usage. The script also accepts the short `-h` help flag (single dash) for convenience.
   - Tip: if you habitually type a single dash (e.g. `-del`) out of laziness, be aware that only `-h` is supported as a single-dash shorthand; use `--del <name>` to delete shortcuts.
+
+- `telltime` — Display current time. Usage:
+  - `telltime` — shows current time in HH:MM:SS format.
+  - `telltime --milisecs` — shows time with milliseconds (HH:MM:SS.mmm).
+  - `telltime --live` — displays a live-updating clock (press Ctrl+C to exit).
 
 - `upt` — Preview `apt upgrade` (runs `sudo apt -s upgrade` to simulate), then prompts to run `sudo apt upgrade`.
 

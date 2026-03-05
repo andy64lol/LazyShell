@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+MILISEC=false
+LIVE=false
+
+for arg in "$@"; do
+    case $arg in
+        --milisecs) MILISEC=true ;;
+        --live) LIVE=true ;;
+        *) echo "Unknown option: $arg"; exit 1 ;;
+    esac
+done
+
+# Function to get current time
+get_time() {
+    if $MILISEC; then
+        date +"%H:%M:%S.%3N"
+    else
+        date +"%H:%M:%S"
+    fi
+}
+
+exit_live() {
+    echo -e "\nExiting live mode..."
+    clear
+    exit
+}
+
+# Live mode
+if $LIVE; then
+    trap exit_live SIGINT
+    clear
+    while true; do
+        echo -ne "\r$(get_time)"
+        sleep 0.1
+    done
+else
+    echo "Current time: $(get_time)"
+fi
