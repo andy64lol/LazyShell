@@ -23,7 +23,7 @@ Manual install example:
 
 Included Scripts
 ----------------
-activation  - Copy files to /usr/local/bin, make executable, skip README/LICENSE/activation. Supports -h|--help, auto-runs gitupdate if available.
+activation  - Copy scripts from scripts/ directory to /usr/local/bin, make executable, skip certain files. Supports -h|--help, auto-runs gitupdate if available.
 
 app_store   - Search for packages across all available package managers:
                 app_store <package_name>  # search apt, dnf, yum, pacman, zypper
@@ -86,6 +86,12 @@ telltime    - Display current time:
                 telltime                  # show time in HH:MM:SS
                 telltime --milisecs       # show time with milliseconds
                 telltime --live           # live updating clock (Ctrl+C to exit)
+
+telldate    - Display current date:
+                telldate                  # show date in DD-MM-YYYY
+                telldate --iso            # show date in YYYY-MM-DD
+                telldate --full           # show full date (e.g., "Monday October 16 2025")
+                telldate --live           # live updating date (Ctrl+C to exit)
 
 upt         - Preview apt upgrade, then prompt to run.
 

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+LIVE=false
+FORMAT="normal"
+
+# Parse flags
+for arg in "$@"; do
+    case $arg in
+        --live) LIVE=true ;;
+        --iso) FORMAT="iso" ;;
+        --full) FORMAT="full" ;;
+        *) echo "Unknown option: $arg"; exit 1 ;;
+    esac
+done
+
+# Ctrl+C handler for live mode
+exit_live() {
+    echo -e "\nExiting live date mode..."
+    clear
+    exit
+}
+
+# Function to get current Gregorian date
+get_date() {
+    case $FORMAT in
+        iso) date +"%Y-%m-%d" ;;
+        full) date +"%A %B %d %Y" ;;
+        *) date +"%d-%m-%Y" ;;
+    esac
+}
+
+# Live mode
+if $LIVE; then
+    trap exit_live SIGINT
+    clear
+    while true; do
+        echo -ne "\r$(get_date)"
+        sleep 1
+    done
+else
+    echo "Current date: $(get_date)"
+fi
