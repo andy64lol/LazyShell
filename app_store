@@ -29,27 +29,37 @@ is_installed() {
     return 1
 }
 
-# show results
+# search packages (exact + fuzzy)
 search_pm() {
     query=$1
     pm=$2
 
     echo ""
     echo "📦 Searching '$query' in $pm..."
+
     case $pm in
         apt)
+            echo "🔹 Exact match:"
+            apt list --installed 2>/dev/null | grep -iw "^$query" || echo "None"
+            echo "🔹 Fuzzy match:"
             apt search "$query" 2>/dev/null | grep -i "$query" | head -20
             ;;
-        dnf)
-            dnf search "$query" | grep -i "$query" | head -20
-            ;;
-        yum)
-            yum search "$query" | grep -i "$query" | head -20
+        dnf|yum)
+            echo "🔹 Exact match:"
+            rpm -qa | grep -iw "^$query" || echo "None"
+            echo "🔹 Fuzzy match:"
+            $pm search "$query" | grep -i "$query" | head -20
             ;;
         pacman)
+            echo "🔹 Exact match:"
+            pacman -Qq | grep -iw "^$query\$" || echo "None"
+            echo "🔹 Fuzzy match:"
             pacman -Ss "$query" | grep -i "$query" | head -20
             ;;
         zypper)
+            echo "🔹 Exact match:"
+            rpm -qa | grep -iw "^$query" || echo "None"
+            echo "🔹 Fuzzy match:"
             zypper search "$query" | grep -i "$query" | head -20
             ;;
     esac
