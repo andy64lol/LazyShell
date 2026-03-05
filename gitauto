@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 
 # gitauto - Zero-interaction Git multi-repo committer with enhanced features
+# Usage: gitauto [root_dir] [commit_message]
 
 # Get starting directory (current by default)
 ROOT_DIR="${1:-$(pwd)}"
+
+# Optional commit message from user
+USER_MESSAGE="$2"
 
 echo -e "\nSearching Git repositories under: \033[1;34m$ROOT_DIR\033[0m"
 REPOS=$(find "$ROOT_DIR" -type d -name ".git" 2>/dev/null)
@@ -34,8 +38,12 @@ for GIT_DIR in $REPOS; do
         # Get remote URL (more robust handling)
         REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "local-only")
 
-        # Generate detailed commit message with "from gitauto"
-        COMMIT_MESSAGE="Auto-commit: $FILE_COUNT changes ($MODIFIED modified, $ADDED added, $DELETED deleted) in $REPO_NAME [from gitauto]"
+        # Decide commit message
+        if [[ -n "$USER_MESSAGE" ]]; then
+            COMMIT_MESSAGE="$USER_MESSAGE"
+        else
+            COMMIT_MESSAGE="Auto-commit: $FILE_COUNT changes ($MODIFIED modified, $ADDED added, $DELETED deleted) in $REPO_NAME [from gitauto]"
+        fi
         
         echo -e "\nRepository: \033[1;35m$REPO_NAME\033[0m"
         echo -e "Changes: \033[33m$FILE_COUNT total\033[0m (\033[32m$ADDED added\033[0m, \033[31m$DELETED deleted\033[0m, \033[34m$MODIFIED modified\033[0m)"
