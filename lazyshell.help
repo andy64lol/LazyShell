@@ -25,11 +25,20 @@ Included Scripts
 ----------------
 activation  - Copy files to /usr/local/bin, make executable, skip README/LICENSE/activation. Supports -h|--help, auto-runs gitupdate if available.
 
+app_store   - Search for packages across all available package managers:
+                app_store <package_name>  # search apt, dnf, yum, pacman, zypper
+
 del         - Flexible removal helper:
                 del <name>      # apt remove or rm -i
                 del -p <name>   # purge apt package or rm -f
                 del -dir <dir>  # remove directory with confirmation
                 del -pdir <dir> # purge directory after explicit confirmation
+
+exec        - File permission manager:
+                exec <file...>           # make file(s) executable
+                exec --all               # make all files executable
+                exec --remove <file...>  # remove executable from file(s)
+                exec --remove-all        # remove executable from all files
 
 gitauto     - Walk directories, find Git repos, stage & commit all changes, push to origin.
 
@@ -57,6 +66,12 @@ pyinstall   - Install Python packages:
 pyver       - Ensure python3/pip3 are installed, then show versions.
 
 rmv         - Preview apt autoremove, then prompt to run.
+
+server      - Python HTTP server with port management:
+                server [port]             # start server (default port 8000)
+                server --kill [port]      # kill process on port
+                server --force [port]     # kill then start server
+                server --open [port]      # start server and open browser
 
 st          - Shortcut manager:
                 st                        # create shortcut

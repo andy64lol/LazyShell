@@ -1,0 +1,58 @@
+#!/bin/bash
+
+usage() {
+    echo "Usage: exec [--all|--remove|--remove-all] <file...>"
+    exit 1
+}
+
+if [ $# -eq 0 ]; then
+    usage
+fi
+
+case $1 in
+    --all)
+        for file in *; do
+            if [ -f "$file" ]; then
+                chmod +x "$file"
+                echo "✓ $file is now executable"
+            fi
+        done
+        exit
+        ;;
+    --remove)
+        shift
+        if [ $# -eq 0 ]; then
+            echo "Specify file(s) to remove executable"
+            exit 1
+        fi
+        for file in "$@"; do
+            if [ -e "$file" ]; then
+                chmod -x "$file"
+                echo "✓ Removed executable from $file"
+            else
+                echo "✗ $file not found"
+            fi
+        done
+        exit
+        ;;
+    --remove-all)
+        for file in *; do
+            if [ -f "$file" ]; then
+                chmod -x "$file"
+                echo "✓ Removed executable from $file"
+            fi
+        done
+        exit
+        ;;
+    *)
+        # normal files
+        for file in "$@"; do
+            if [ -e "$file" ]; then
+                chmod +x "$file"
+                echo "✓ $file is now executable"
+            else
+                echo "✗ $file not found"
+            fi
+        done
+        ;;
+esac

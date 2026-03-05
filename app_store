@@ -1,0 +1,102 @@
+#!/bin/bash
+
+# detect available package managers
+detect_pms() {
+    PMS=()
+    for pm in apt dnf yum pacman zypper; do
+        if command -v $pm >/dev/null 2>&1; then
+            PMS+=($pm)
+        fi
+    done
+    echo "${PMS[@]}"
+}
+
+# check if package is installed
+is_installed() {
+    pkg=$1
+    for pm in "${PMS[@]}"; do
+        case $pm in
+            apt)
+                dpkg -l | grep -qw "$pkg" && return 0 ;;
+            dnf|yum)
+                rpm -q "$pkg" >/dev/null 2>&1 && return 0 ;;
+            pacman)
+                pacman -Qs "^$pkg\$" >/dev/null 2>&1 && return 0 ;;
+            zypper)
+                rpm -q "$pkg" >/dev/null 2>&1 && return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# show results
+search_pm() {
+    query=$1
+    pm=$2
+
+    echo ""
+    echo "📦 Searching '$query' in $pm..."
+    case $pm in
+        apt)
+            apt search "$query" 2>/dev/null | grep -i "$query" | head -20
+            ;;
+        dnf)
+            dnf search "$query" | grep -i "$query" | head -20
+            ;;
+        yum)
+            yum search "$query" | grep -i "$query" | head -20
+            ;;
+        pacman)
+            pacman -Ss "$query" | grep -i "$query" | head -20
+            ;;
+        zypper)
+            zypper search "$query" | grep -i "$query" | head -20
+            ;;
+    esac
+}
+
+# find similar packages (fuzzy match)
+similar_apps() {
+    query=$1
+    echo ""
+    echo "🔍 Similar apps:"
+    for pm in "${PMS[@]}"; do
+        case $pm in
+            apt)
+                apt list 2>/dev/null | grep -i "$query" | head -10
+                ;;
+            dnf|yum)
+                rpm -qa | grep -i "$query" | head -10
+                ;;
+            pacman)
+                pacman -Qq | grep -i "$query" | head -10
+                ;;
+            zypper)
+                rpm -qa | grep -i "$query" | head -10
+                ;;
+        esac
+    done
+}
+
+# main
+if [ $# -eq 0 ]; then
+    echo "Usage: app_store <package_name>"
+    exit 1
+fi
+
+QUERY=$1
+PMS=($(detect_pms))
+
+if [ ${#PMS[@]} -eq 0 ]; then
+    echo "No supported package managers found!"
+    exit 1
+fi
+
+for pm in "${PMS[@]}"; do
+    search_pm "$QUERY" "$pm"
+done
+
+similar_apps "$QUERY"
+
+echo ""
+echo "Done! Checked: ${PMS[*]}"

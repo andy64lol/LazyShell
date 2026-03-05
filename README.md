@@ -27,12 +27,21 @@ sudo chmod +x /usr/local/bin/<script>
 
 - `activation` — Copy regular files in the current directory to `/usr/local/bin`, make them executable, skip certain files (README.md, LICENSE, activation). Supports `-h|--help` and tries to run `gitupdate LazyShell` if available.
 
+- `app_store` — Search for packages across all available package managers on the system. Usage:
+  - `app_store <package_name>` — searches for the package using all detected package managers (apt, dnf, yum, pacman, zypper) and shows similar installed packages.
+
 - `del` — Flexible removal helper. Usage patterns:
   - `del <name>` — tries `sudo apt remove -y <name>` (if apt available) or falls back to `rm -i <name>`.
   - `del -p <name>` — purge package (`apt purge -y`) or `rm -f <name>`.
   - `del -dir <directory>` — remove a directory after confirmation (`rm -r`).
   - `del -pdir <directory>` — purge a directory (`rm -rf`) after explicit confirmation.
   - The script refuses to delete protected system directories and validates directory paths. It will prompt before destructive directory operations.
+
+- `exec` — File permission manager. Usage:
+  - `exec <file...>` — makes the specified file(s) executable.
+  - `exec --all` — makes all files in the current directory executable.
+  - `exec --remove <file...>` — removes executable permission from specified file(s).
+  - `exec --remove-all` — removes executable permission from all files in the current directory.
 
 - `gitauto` — Walks a directory tree (or the current directory by default), finds Git repositories (`.git` folders), and for each repo with changes: stages all changes, auto-commits with a generated message summarizing added/modified/deleted counts, and pushes to `origin` if a remote exists. Useful for batch committing multiple local repos.
 
@@ -66,6 +75,13 @@ sudo chmod +x /usr/local/bin/<script>
 - `pyver` — Ensure `python3` and `pip3` are present (installs them if needed) and print their versions.
 
 - `rmv` — Preview `apt autoremove` (runs `sudo apt -s autoremove` to simulate), then prompts to actually run `sudo apt autoremove`.
+
+- `server` — Python HTTP server with port management. Usage:
+  - `server [port]` — start HTTP server on specified port (default 8000).
+  - `server --kill [port]` — kill the process running on the specified port.
+  - `server --force [port]` — kill any process on the port, then start the server.
+  - `server --open [port]` — start the server and automatically open in browser.
+  - Shows both local (`http://localhost:<port>`) and network (`http://<ip>:<port>`) URLs.
 
 - `st` — Shortcut manager:
   - `st` launches interactive creation: prompts for a command and a shortcut name, validates the name, writes a small script to `~/.shortcuts/<name>`, `chmod +x` it, then symlinks it into `/usr/local/bin` (requires sudo for the link).
